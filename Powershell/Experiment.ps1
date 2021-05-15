@@ -245,8 +245,14 @@ function Apply-MemberAccessExpressionSerialization{
     $memberAccessNodeString = ""
     $descendantTokens = $SyntaxNode.DescendantTokens()
     foreach ($descendantToken in $descendantTokens){
-        $currToken = $descendantToken.ToString()
         $skipToken = $false
+        $currToken = $descendantToken.ToString()     
+        if ($currToken -eq ')' -or $currToken -eq '('){
+            $parent = $descendantToken.Parent
+            if ($parent.ToString() -eq '()'){
+                $skipToken = $true
+            }
+        }        
         if ($variables){
             $varNode = $variables.DescendantNodes() | Where-Object {$_.Name -and $_.Name.ToString() -eq $currToken} | Select-Object -First 1
             if ($varNode.Type.DataType.Subtype.Identifier){            
@@ -269,7 +275,7 @@ function Apply-MemberAccessExpressionSerialization{
             $memberAccessNodeString += $currToken
         }
     }    
-    return $memberAccessNodeString
+    return $memberAccessNodeString.ToLower()
 }
 
 function Apply-Serialization{
@@ -284,7 +290,7 @@ function Apply-Serialization{
     if ($containsChildKind){
         $SerializedNodeString += Apply-MemberAccessExpressionSerialization $MethodDeclarationSyntaxNode $SyntaxNode
     }else{
-        $SerializedNodeString += $SyntaxNode.ToString()
+        $SerializedNodeString += $SyntaxNode.ToString().ToLower()
     }
     return $SerializedNodeString
 }
@@ -361,8 +367,8 @@ foreach($methodDeclaration in $methodDeclarations){
 # <gelöst> Wie bekomme ich den Method Body?
 $bodyNode = Get-BodyNode $methodDeclaration 
 
-# TODO: Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette im Stile von Stringify. 
-# Dabei werden Variablenname durch ihren Typ ersetzt (Also aus SalesLineLoc wird "Sales Line"). Besondere Herausforderung: Rec muss auch zum Typen umgewandelt werden: Also aus  Rec.SetRange oder SetRange => "Sales Line".SetRange
+# <einfache Fälle gelöst, Rec noch nicht>: Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette im Stile von Stringify. 
+# Dabei werden Variablenname durch ihren Typ ersetzt (Also aus SalesLineLoc wird "Sales Line"). Besondere Herausforderung: Rec muss auch zum Typen umgewandelt werden: Also aus Rec.SetRange oder SetRange => "Sales Line".SetRange
 # Tipp für die Analyse: IlSpy (gibt es neuerdings im Windows-Store) => Microsoft.Dynamics.Nav.CodeAnalysis.dll
 foreach($methodDeclaration in $methodDeclarations){
     $bodyOneLine = New-MethodBodyAsOneLiner $methodDeclaration

@@ -67,7 +67,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo3(IntPar: Record Integer;)            
+    local procedure AnalysisDemo3(IntPar: Record Integer)            
     begin
         IntPar.Reset();
         IntPar.SetRange(Number, 1, 5);
@@ -77,7 +77,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo3(var IntVar: Record Integer;)            
+    local procedure AnalysisDemo3(var IntVar: Record Integer)            
     begin
         IntVar.Reset();
         IntVar.SetRange(Number, 1, 5);
@@ -87,7 +87,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo4(var IntVar: Record Integer;)            
+    local procedure AnalysisDemo4(var IntVar: Record Integer)            
     begin
         IntVar.Reset();        
         IntVar.SetFilter(Number, '%1..%2', 1, 5);
@@ -97,7 +97,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo5(Test: Record "Sales Line", var IntVar: Record Integer;)            
+    local procedure AnalysisDemo5(Test: Record "Sales Line"; var IntVar: Record Integer)
     var
         MetaData: Record Integer;
     begin
@@ -113,5 +113,40 @@ page 50100 TestPageExt
             until IntVar.Next() = 0;
         end;
     end;
+
+    local procedure AnalysisDemo6(Test: Record "Sales Line"; var IntVar: Record Integer)
+    var
+        MetaData: Record Integer;
+    begin
+        Rec.Reset();        
+        // Störfaktor Kommentar
+        Rec.SetFilter(Number, '%1..%2', 1, 5);
+        if Rec.Findset then begin
+            repeat
+
+            // Noch mehr Störfaktoren
+
+
+            until Rec.Next() = 0;
+        end;
+    end;
+
+    local procedure AnalysisDemo7(Test: Record "Sales Line"; var IntVar: Record Integer)
+    var
+        MetaData: Record Integer;
+    begin
+        Reset();        
+        // Störfaktor Kommentar
+        SetFilter(Number, '%1..%2', 1, 5);
+        if FindSet then begin
+            repeat
+
+            // Noch mehr Störfaktoren
+
+
+            until Next() = 0;
+        end;
+    end;
+
 
 }

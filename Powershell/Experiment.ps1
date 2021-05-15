@@ -16,6 +16,14 @@ if (-not (Test-Path($documentName))){
     throw "VSC demo al file $documentName not found"
 }
 
+function Install-HelperModules {
+    # https://github.com/gravejester/Communary.PASM
+    $module = Get-Module Communary.PASM
+    if (-not $module){
+        Install-Module Communary.PASM
+    }
+}
+
 function Import-CompilerDlls {
     param (
         [Parameter(Mandatory = $true, Position = 1)]
@@ -246,9 +254,9 @@ function Apply-MemberAccessExpressionSerialization{
     $descendantTokens = $SyntaxNode.DescendantTokens()
     foreach ($descendantToken in $descendantTokens){
         $skipToken = $false
+        $parent = $descendantToken.Parent
         $currToken = $descendantToken.ToString()     
-        if ($currToken -eq ')' -or $currToken -eq '('){
-            $parent = $descendantToken.Parent
+        if ($currToken -eq ')' -or $currToken -eq '('){            
             if ($parent.ToString() -eq '()'){
                 $skipToken = $true
             }
@@ -290,9 +298,36 @@ function Apply-Serialization{
     if ($containsChildKind){
         $SerializedNodeString += Apply-MemberAccessExpressionSerialization $MethodDeclarationSyntaxNode $SyntaxNode
     }else{
+        $dns = $SyntaxNode.DescendantTokens()
+        foreach($dn in $dns){
+
+        }
         $SerializedNodeString += $SyntaxNode.ToString().ToLower()
     }
     return $SerializedNodeString
+}
+
+function Match-Approximatelly{
+    param (         
+        [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
+        [string] $String1,
+        [Parameter(Mandatory = $true, Position = 2, ValueFromPipeline = $true)]
+        [string] $String2,
+        [Parameter(Mandatory = $false)]
+        [int] $ScoreLimitValue = 90,
+        [Parameter(Mandatory = $false)]
+        [Switch] $LessThan,
+        [Parameter(Mandatory = $false)]
+        [PasmAlgorithm] $Algorithm = [PasmAlgorithm]::JaroDistance #HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient
+    )  
+    #1. Favorit JaroDistance danach JaccardDistance
+    $pasmScore  = Get-PasmScore -String1 $a -String2 $b -Algorithm $Algorithm      
+    if ($LessThan){        
+        $result = $pasmScore -le $ScoreLimitValue        
+    }else{        
+        $result = $pasmScore -ge $ScoreLimitValue
+    }
+    return $result
 }
 
 
@@ -306,25 +341,7 @@ function New-MethodBodyAsOneLiner{
     $SerializedString = ""    
     $Statements = $body.Statements
     foreach($Statement in $Statements){
-        $SerializedString += Apply-Serialization $MethodDeclarationSyntaxNode $Statement 
-        <#
-        switch($Statement.Kind){    # Mögliche Kind : None,EmptyToken,Int32LiteralToken,Int64LiteralToken,DecimalLiteralToken,DateLiteralToken,TimeLiteralToken,DateTimeLiteralToken,StringLiteralToken,XmlEntityLiteralToken,XmlTextLiteralToken,XmlTextLiteralNewLineToken,IdentifierToken,BadToken,FalseKeyword,TrueKeyword,RDivToken,PlusToken,MinusToken,MultiplyToken,IDivKeyword,ModuloKeyword,AssignToken,AssignRDivToken,AssignPlusToken,AssignMinusToken,AssignMultiplyToken,LessThanToken,LessThanEqualsToken,NotEqualsToken,EqualsToken,GreaterThanToken,GreaterThanEqualsToken,CommaToken,DotToken,ColonToken,SemicolonToken,ColonColonToken,DotDotToken,AtToken,MinusMinusToken,PlusPlusToken,DoubleQuoteToken,SingleQuoteToken,QuestionToken,AmpersandToken,BarToken,CaretToken,PercentToken,TildeToken,EqualsEqualsToken,ExclamationEqualsToken,ExclamationToken,LessThanLessThanToken,HashToken,OpenParenToken,CloseParenToken,OpenBracketToken,CloseBracketToken,OpenBraceToken,CloseBraceToken,AndKeyword,OrKeyword,XorKeyword,NotKeyword,ExitKeyword,BeginKeyword,CaseKeyword,DoKeyword,DownToKeyword,ElseKeyword,EndKeyword,ForKeyword,IfKeyword,InKeyword,OfKeyword,RepeatKeyword,ThenKeyword,ToKeyword,UntilKeyword,WithKeyword,WhileKeyword,ProgramKeyword,ProcedureKeyword,FunctionKeyword,VarKeyword,ArrayKeyword,TemporaryKeyword,LocalKeyword,InternalKeyword,ProtectedKeyword,EventKeyword,AssertErrorKeyword,SuppressDisposeKeyword,SecurityFilteringKeyword,ForEachKeyword,TriggerKeyword,CodeunitKeyword,TableKeyword,TableDataKeyword,SystemKeyword,PageKeyword,ReportKeyword,QueryKeyword,XmlPortKeyword,ControlAddInKeyword,ProfileKeyword,ProfileExtensionKeyword,DotNetKeyword,PageCustomizationKeyword,CustomizesKeyword,FieldsKeyword,FieldKeyword,AssemblyKeyword,TypeKeyword,BreakKeyword,FieldGroupsKeyword,FieldGroupKeyword,KeysKeyword,KeyKeyword,PageLayoutKeyword,PageAreaKeyword,PageGroupKeyword,PageRepeaterKeyword,PageCueGroupKeyword,PageFixedKeyword,PageGridKeyword,PagePartKeyword,PageSystemPartKeyword,PageChartPartKeyword,PageUserControlKeyword,ActionsKeyword,ActionKeyword,SeparatorKeyword,TableExtensionKeyword,PageExtensionKeyword,ExtendsKeyword,AddFirstKeyword,AddLastKeyword,AddBeforeKeyword,AddAfterKeyword,MoveFirstKeyword,MoveLastKeyword,MoveBeforeKeyword,MoveAfterKeyword,ModifyKeyword,DataSetKeyword,DataItemKeyword,ColumnKeyword,LabelsKeyword,LabelKeyword,RequestPageKeyword,XmlPortSchemaKeyword,XmlPortTableElementKeyword,XmlPortFieldElementKeyword,XmlPortTextElementKeyword,XmlPortFieldAttributeKeyword,XmlPortTextAttributeKeyword,FilterKeyword,QueryElementsKeyword,AndFilterKeyword,OrFilterKeyword,EnumKeyword,EnumExtensionKeyword,EnumValueKeyword,ViewsKeyword,ViewKeyword,ReportExtensionKeyword,AddKeyword,InterfaceKeyword,ImplementsKeyword,PermissionSetKeyword,PermissionSetExtensionKeyword,EntitlementKeyword,WhereFormulaKeyword,FieldFormulaKeyword,ConstFormulaKeyword,FilterFormulaKeyword,UpperLimitFormulaKeyword,ExistCalculationFormulaKeyword,CountCalculationFormulaKeyword,SumCalculationFormulaKeyword,AverageCalculationFormulaKeyword,MinCalculationFormulaKeyword,MaxCalculationFormulaKeyword,LookupCalculationFormulaKeyword,OrderKeyword,SortingKeyword,AscendingKeyword,DescendingKeyword,ElifKeyword,EndIfKeyword,RegionKeyword,EndRegionKeyword,DefineKeyword,UndefKeyword,PragmaKeyword,WarningKeyword,DisableKeyword,RestoreKeyword,EnableKeyword,ImplicitWithKeyword,SlashGreaterThanToken,LessThanSlashToken,XmlCommentStartToken,XmlCommentEndToken,XmlCDataStartToken,XmlCDataEndToken,XmlProcessingInstructionStartToken,XmlProcessingInstructionEndToken,EndOfDocumentationCommentToken,EndOfDirectiveToken,EndOfFileToken,List,EndOfLineTrivia,WhiteSpaceTrivia,CommentTrivia,LineCommentTrivia,DocumentationCommentExteriorTrivia,SingleLineDocumentationCommentTrivia,MultiLineDocumentationCommentTrivia,SkippedTokensTrivia,DisabledTextTrivia,BooleanLiteralValue,Int32SignedLiteralValue,Int64SignedLiteralValue,DecimalSignedLiteralValue,DateLiteralValue,TimeLiteralValue,DateTimeLiteralValue,StringLiteralValue,AssignmentStatement,CompoundAssignmentStatement,IfStatement,OrphanedElseStatement,CaseStatement,RepeatStatement,WhileStatement,ForStatement,ForEachStatement,ExitStatement,Block,WithStatement,EmptyStatement,ExpressionStatement,AssertErrorStatement,BreakStatement,ParenthesizedExpression,AddExpression,SubtractExpression,MultiplyExpression,DivideExpression,IntegerDivideExpression,ModuloExpression,EqualsExpression,NotEqualsExpression,GreaterThanExpression,GreaterThanOrEqualExpression,LessThanExpression,LessThanOrEqualExpression,LogicalOrExpression,LogicalAndExpression,LogicalXorExpression,RangeExpression,UnaryPlusExpression,UnaryMinusExpression,UnaryNotExpression,ArrayIndexExpression,InvocationExpression,MemberAccessExpression,OptionAccessExpression,InListExpression,LiteralExpression,IdentifierOrLiteralExpression,IdentifierName,QualifiedName,IdentifierNameOrEmpty,ArgumentList,BracketedArgumentList,CaseLine,CaseElse,CompilationUnit,PropertyList,OptionValues,ObjectReference,ObjectId,ObjectNameReference,ParameterList,MethodBody,VarSection,GlobalVarSection,TriggerDeclaration,EventTriggerDeclaration,MethodDeclaration,EventDeclaration,Parameter,VariableDeclaration,VariableListDeclaration,VariableDeclarationName,ReturnValue,SimpleTypeReference,RecordTypeReference,DotNetTypeReference,DataType,GenericDataType,OptionDataType,TextConstDataType,LabelDataType,DotNetDataType,LengthDataType,SubtypedDataType,EnumDataType,Array,BracketedDimensionList,Dimension,MemberAttribute,FieldList,Field,DotNetAssembly,DotNetTypeDeclaration,FieldExtensionList,FieldModification,KeyList,Key,FieldGroupList,FieldGroup,PageLayout,PageActionList,GroupActionList,PageArea,PageGroup,PageField,PageLabel,PagePart,PageSystemPart,PageChartPart,PageUserControl,PageAction,PageActionGroup,PageActionArea,PageActionSeparator,PageExtensionActionList,ActionAddChange,ActionMoveChange,ActionModifyChange,PageExtensionLayout,ControlAddChange,ControlMoveChange,ControlModifyChange,PageExtensionViewList,ViewAddChange,ViewMoveChange,ViewModifyChange,ReportDataSetSection,ReportLabelsSection,ReportDataItem,ReportColumn,ReportLabel,ReportLabelMultilanguage,XmlPortSchema,XmlPortTableElement,XmlPortFieldElement,XmlPortTextElement,XmlPortFieldAttribute,XmlPortTextAttribute,RequestPage,RequestPageExtension,QueryElements,QueryDataItem,QueryColumn,QueryFilter,Label,EnumType,EnumValue,EnumExtensionType,FieldGroupExtensionList,FieldGroupAddChange,PageViewList,PageView,ReportExtension,ReportExtensionModifyChange,ReportExtensionAddDataItemChange,ReportExtensionAddColumnChange,ReportExtensionDataSetSection,ReportExtensionDataSetAddColumn,ReportExtensionDataSetAddDataItem,ReportExtensionDataSetModify,Property,EmptyProperty,PropertyName,InvalidPropertyValue,Int32PropertyValue,Int64PropertyValue,DecimalPropertyValue,StringPropertyValue,TimePropertyValue,DatePropertyValue,DateTimePropertyValue,MultilanguagePropertyValue,LabelPropertyValue,EnumPropertyValue,BooleanPropertyValue,ImagePropertyValue,OptionValuePropertyValue,IdentifierOrLiteralPropertyValue,MemberAccessOrIdentifierPropertyValue,PageFieldReferencePropertyValue,LanguageId,TableRelationStatement,TableRelationJoinCondition,TableFilterExpression,ConstExpression,FieldFilterExpression,SimpleFieldExpression,FilterExpression,FieldUpperLimitExpression,FieldUpperLimitFilterExpression,InvalidFilterExpressionValue,InvalidPropertyExpression,IfTableRelationExpression,ElseTableRelationExpression,ExistCalculationFormulaStatement,CountCalculationFormulaStatement,SumCalculationFormulaStatement,AverageCalculationFormulaStatement,MinCalculationFormulaStatement,MaxCalculationFormulaStatement,LookupCalculationFormulaStatement,UnknownCalculationFormulaStatement,WhereExpression,DecimalPlaces,OptionValuesPropertyValue,PermissionPropertyValue,PermissionSyntaxPropertyValue,PermissionValue,CommaSeparatedPropertyValue,CommaSeparatedStringsPropertyValue,CommaSeparatedIdentifierEqualsStringList,CommaSeparatedIdentifierEqualsLiteralList,CommaSeparatedIdentifierEqualsStringListPropertyValue,CommaSeparatedIdentifierOrLiteralPropertyValue,CommaSeparatedIdentifierEqualsIdentifierList,CommaSeparatedIdentifierEqualsIdentifierPropertyValue,CommaSeparatedIdentifierEqualsIdentifierListPropertyValue,IdentifierEqualsString,IdentifierEqualsLiteral,IdentifierEqualsIdentifier,QualifiedObjectReferencePropertyValue,ObjectReferencePropertyValue,ExpressionPropertyValue,BooleanExpressionPropertyValue,ClientSideBooleanExpressionPropertyValue,IntegerExpressionPropertyValue,TextExpressionPropertyValue,DecimalPlacesPropertyValue,TableFilterPropertyValue,TableViewPropertyValue,FiltersPropertyValue,SortingExpression,OrderExpression,StyleExpressionPropertyValue,MemberReferencePropertyValue,MemberReferencePropertyValueSyntax,OrderByPropertyValue,OrderByExpression,QueryDataItemLinkPropertyValue,QueryDataItemLinkExpression,ReportDataItemLinkPropertyValue,ReportDataItemLinkExpression,ParenthesizedFilterExpressionValue,UnaryNotEqualsFilterExpression,UnaryEqualsFilterExpression,UnaryLessThanFilterExpression,UnaryLessThanEqualsFilterExpression,UnaryGreaterThanFilterExpression,UnaryGreaterThanEqualsFilterExpression,AndFilterExpression,OrFilterExpression,RangeBetweenFilterExpression,RangeFromFilterExpression,RangeToFilterExpression,CodeunitObject,TableObject,TableExtensionObject,PageObject,PageExtensionObject,ReportObject,XmlPortObject,QueryObject,ControlAddInObject,ReportExtensionObject,ProfileObject,ProfileExtensionObject,PageCustomizationObject,DotNetPackage,Interface,PermissionSet,PermissionSetExtension,Entitlement,AttributeArgumentList,LiteralAttributeArgument,MethodReferenceAttributeArgument,OptionAccessAttributeArgument,InvalidAttributeArgument,XmlName,XmlElement,XmlEmptyElement,XmlText,XmlCData,XmlProcessingInstruction,XmlComment,XmlElementStartTag,XmlElementEndTag,XmlTextAttribute,XmlNameAttribute,XmlPrefix,XmlCDataSection,DefineDirectiveTrivia,UndefDirectiveTrivia,IfDirectiveTrivia,ElifDirectiveTrivia,ElseDirectiveTrivia,EndIfDirectiveTrivia,RegionDirectiveTrivia,EndRegionDirectiveTrivia,PreprocessingMessageTrivia,BadDirectiveTrivia,PragmaWarningDirectiveTrivia,PragmaImplicitWithDirectiveTrivia,BadPragmaDirectiveTrivia        
-            $([Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::ExpressionStatement) {                
-                # Offensichtlich recursive verarbeitung
-                [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.ExpressionStatementSyntax] $ExpressionStatement = $Statement
-                [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.InvocationExpressionSyntax] $InvocationExpression = $ExpressionStatement.Expression                
-                $type = $InvocationExpression.GetType()  
-                $childNodes = $InvocationExpression.ChildNodes()
-                foreach($childNode in $childNodes){
-                    [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.MemberAccessExpressionSyntax] $memberAccessExpressionSyntax = $childNode
-                    [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.CodeExpressionSyntax] $codeAccessExpressionSyntax = $childNode
-                    Write-Host $memberAccessExpressionSyntax
-                }
-                Write-Host $type #Was folgt als nächstes
-                
-            }
-        }
-        #>    
+        $SerializedString += Apply-Serialization $MethodDeclarationSyntaxNode $Statement
     }
     Write-Host "Ausgabe für $($MethodDeclarationSyntaxNode.Name): $SerializedString"
 
@@ -335,46 +352,64 @@ function New-MethodBodyAsOneLiner{
 # Hier geht der interessante Teil los
 ################################################################
 
-# 1.) Alle Compiler DLL geladen, so dass sie via Powershell nutzbar sind
+# 1.) 
+Install-HelperModules
+
+# 2.) Alle Compiler DLL geladen, so dass sie via Powershell nutzbar sind
 Import-CompilerDlls $alcCompilerBinDirpath
 
-# 2.) Hier wird ein Visual Studio Code Workspace Editor Host Instanz erzeugt. Das höchste Abstarktionslayer, welchen ich vorgefunden habe.
+# 3.) Hier wird ein Visual Studio Code Workspace Editor Host Instanz erzeugt. Das hï¿½chste Abstarktionslayer, welchen ich vorgefunden habe.
 $vsCodeWorkSpace = New-VSCodeWorkspace 
 
-# 3.) Füge ein Projekt der Umgebung hinzu. Wie in VS-Code auch, kann das Objekt VSCodeWorkspace mehrere Projekte verwalten.
+# 4.) Fï¿½ge ein Projekt der Umgebung hinzu. Wie in VS-Code auch, kann das Objekt VSCodeWorkspace mehrere Projekte verwalten.
 Add-ProjectPath $vsCodeWorkSpace $demoProjectDirPath
 
-# 4.) Extrahiere aus dem einzigen Projekt ein "Project" Objekt.
+# 5.) Extrahiere aus dem einzigen Projekt ein "Project" Objekt.
 $project = Get-Projects $vsCodeWorkSpace | Select-Object -First 1
 
-# 5.) Unterhalb eines Projektes gibt es jede Menge Strukturen. Unter anderem auch ein "Document" Objekt, dass den Dateipfad als Name hat.
+# 6.) Unterhalb eines Projektes gibt es jede Menge Strukturen. Unter anderem auch ein "Document" Objekt, dass den Dateipfad als Name hat.
 $document = Get-Document $project -DocumentName $documentName
 $documentState = Get-DocumentState $document
 $syntaxTree = Get-DocumentSyntaxTree $document
 $rootSyntaxNode = Get-DocumentRootSyntaxNode $document # SyntaxNode Struktur kenn ich grob. Ziemlich detailiert und komplex.
 $SemanticModel = Get-DocumentSemanticModel $document # Ist das besser geeignet als Syntax Knoten?
 
-# Hier meine erste Idee
+# Hier meine vorläufige Idee
 # <gelöst> Wie bekomme ich eine Methoden-Object? Syntax-Knoten oder semantische Model (was auch immer das ist?)
 $methodDeclarations = Select-MethodDeclarationNodes $rootSyntaxNode
 
-# <gelöst> Wie komme ich an die Variablen und ParameterList einer Methode? (Wieso? Ich will Variablennamen umbenennenen. Beispiel: SalesLineLoc soll zu "Sales Line" werden)
+# Wie komme ich an die Variablen und ParameterList einer Methode? (Wieso? Ich will Variablennamen umbenennenen. Beispiel: SalesLineLoc soll zu "Sales Line" werden)
+# <gelöst> 
 foreach($methodDeclaration in $methodDeclarations){
     $variableNodes = Select-VariableNodes $methodDeclaration 
     $parameterNodes = Select-ParameterListNodes $methodDeclaration 
 }
 
-# <gelöst> Wie bekomme ich den Method Body?
+# Wie bekomme ich den Method Body?
+# <gelöst> 
 $bodyNode = Get-BodyNode $methodDeclaration 
 
-# <einfache Fälle gelöst, Rec noch nicht>: Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette im Stile von Stringify. 
+# Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette im Stile von Stringify. 
 # Dabei werden Variablenname durch ihren Typ ersetzt (Also aus SalesLineLoc wird "Sales Line"). Besondere Herausforderung: Rec muss auch zum Typen umgewandelt werden: Also aus Rec.SetRange oder SetRange => "Sales Line".SetRange
 # Tipp für die Analyse: IlSpy (gibt es neuerdings im Windows-Store) => Microsoft.Dynamics.Nav.CodeAnalysis.dll
+# <für einige Fälle gelöst, Rec nicht, With Rec nicht, CurrPage nicht, CurrReport nicht und und und>
 foreach($methodDeclaration in $methodDeclarations){
-    $bodyOneLine = New-MethodBodyAsOneLiner $methodDeclaration
+    $methodBodyOneLiner = New-MethodBodyAsOneLiner $methodDeclaration
 }
 
 # TODO: Sammlung der umgewandelten Strings in ein Dictionary  <PositionsInfo, Umgewandelte Zeichenkette>.
 
-# IDEE: Via naiver Volltextsuche werden die umgewandelten Strings miteinander Verglichen.  https://de.wikipedia.org/wiki/Knuth-Morris-Pratt-Algorithmus = Bei einem mÃ¶glichen Treffer gibt es einen Hinweis an den Anwender. 
 
+# IDEE: Via approximativen Stringvergleich werden die umgewandelten Strings miteinander verglichen und die Abweichung bewertet.
+# Müssen prüfen, welche Algorithmus am geeignesten ist. 
+# Zur Auswahl stehen HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient 
+# Gegebenenfalls müssen wir einen eigenen Score basteln. Beispiel wie sowas gehen könnte: https://github.com/gravejester/Communary.PASM/blob/master/Functions/Get-FuzzyMatchScore.ps1
+
+
+#$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
+#$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
+$a = 'rec.reset;rec.setfilter(number,''%1..%2'',1,5);ifrec.findsetthenbeginrepeatuntilrec.next=0;end;'
+#$a = 'integer.reset;integer.setfilter(number,''%1..%2'',1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
+$b = 'integer.reset;integer.setfilter(number,''%1..%2'',1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
+$result = Match-Approximatelly $a $b
+Write-Host $result

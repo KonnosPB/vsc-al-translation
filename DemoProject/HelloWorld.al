@@ -67,5 +67,51 @@ page 50100 TestPageExt
         end;
     end;
 
+    local procedure AnalysisDemo3(IntPar: Record Integer;)            
+    begin
+        IntPar.Reset();
+        IntPar.SetRange(Number, 1, 5);
+        if IntPar.Findset then begin
+            repeat
+            until IntPar.Next() = 0;
+        end;
+    end;
+
+    local procedure AnalysisDemo3(var IntVar: Record Integer;)            
+    begin
+        IntVar.Reset();
+        IntVar.SetRange(Number, 1, 5);
+        if IntVar.Findset then begin
+            repeat
+            until IntVar.Next() = 0;
+        end;
+    end;
+
+    local procedure AnalysisDemo4(var IntVar: Record Integer;)            
+    begin
+        IntVar.Reset();        
+        IntVar.SetFilter(Number, '%1..%2', 1, 5);
+        if IntVar.Findset then begin
+            repeat
+            until IntVar.Next() = 0;
+        end;
+    end;
+
+    local procedure AnalysisDemo5(Test: Record "Sales Line", var IntVar: Record Integer;)            
+    var
+        MetaData: Record Integer;
+    begin
+        IntVar.Reset();        
+        // Störfaktor Kommentar
+        IntVar.SetFilter(Number, '%1..%2', 1, 5);
+        if IntVar.Findset then begin
+            repeat
+
+            // Noch mehr Störfaktoren
+
+
+            until IntVar.Next() = 0;
+        end;
+    end;
 
 }

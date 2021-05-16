@@ -238,7 +238,9 @@ function New-MethodData{
     $filePath = $location.SourceTree.FilePath
     $content = New-MethodBodyAsOneLiner $MethodDeclarationSyntaxNode
     $result = [pscustomobject]@{
-        "Path" = $filePath
+        "Id" = [guid]::NewGuid()
+        "FilePath" = $filePath
+        "FileName" = [System.IO.Path]::GetFileName($filePath)
         "Method" = $methodName
         "Line" = $lineNo
         "SyntaxNode" = $MethodDeclarationSyntaxNode
@@ -343,12 +345,18 @@ function Match-Approximatelly{
         [PasmAlgorithm] $Algorithm = [PasmAlgorithm]::JaroDistance #HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient
     )  
     #1. Favorit JaroDistance danach JaccardDistance
-    $pasmScore  = Get-PasmScore -String1 $a -String2 $b -Algorithm $Algorithm      
+    $pasmScore  = Get-PasmScore -String1 $String1 -String2 $String2 -Algorithm $Algorithm      
     if ($LessThan){        
-        $result = $pasmScore -le $ScoreLimitValue        
+        $matchEvaluation = $pasmScore -le $ScoreLimitValue        
     }else{        
-        $result = $pasmScore -ge $ScoreLimitValue
+        $matchEvaluation = $pasmScore -ge $ScoreLimitValue
     }
+    $result = [pscustomobject]@{
+                    "ScoreLimit" = $ScoreLimitValue
+                    "Algorithm" = $Algorithm
+                    "Score" = $pasmScore
+                    "MatchEvaluation" = $matchEvaluation  
+                }
     return $result
 }
 
@@ -366,6 +374,39 @@ function New-MethodBodyAsOneLiner{
         $SerializedString += Apply-Serialization $MethodDeclarationSyntaxNode $Statement
     }    
     return $SerializedString
+}
+
+
+
+function Compare-Methods{
+    param (         
+        [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
+        [object[]] $methodDataList,
+        [Parameter(Mandatory = $false)]
+        [int] $ScoreLimitValue = 90,
+        [Parameter(Mandatory = $false)]
+        [Switch] $LessThan,
+        [Parameter(Mandatory = $false)]
+        [PasmAlgorithm] $Algorithm = [PasmAlgorithm]::JaroDistance #HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient
+    )        
+    $results = @()  
+    # TODO: Performanceoptimierung? Parallelverarbeitung?
+    for ($i = 0; $i -lt $methodDataList.Count; $i++){
+        for ($y = $i + 1; $y -lt $methodDataList.Count; $y++){
+            $methodData1 = $methodDataList.Get($i)
+            $methodData2 = $methodDataList.Get($y)
+            if ($methodData1.Id -ne $methodData2.Id){                
+                $comparisonScore = Match-Approximatelly $methodData1.Content $methodData2.Content -ScoreLimitValue $ScoreLimitValue -LessThan:$LessThan -Algorithm $Algorithm
+                $result = [pscustomobject]@{
+                    "MethodData1" = $methodData1
+                    "MethodData2" = $methodData2
+                    "Score" = $comparisonScore                   
+                }
+                $results += $result                
+            }
+        }
+    }
+    return $results
 }
 
 ################################################################
@@ -409,7 +450,7 @@ foreach($methodDeclaration in $methodDeclarations){
 # <gelöst> 
 $bodyNode = Get-BodyNode $methodDeclaration 
 
-# Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette ähnlich Stringify-Funktionalität. 
+# Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette ähnlich Stringify-Funktionalität umhälit in einer Methoden-Datatransferobjekt. 
 # Dabei werden Variablenname durch ihren Typ ersetzt (Also aus SalesLineLoc wird "Sales Line"). Besondere Herausforderung: Rec muss auch zum Typen umgewandelt werden: Also aus Rec.SetRange oder SetRange => "Sales Line".SetRange
 # Tipp für die Analyse: Mit IlSpy (gibt es neuerdings im Windows-Store) die Microsoft.Dynamics.Nav.CodeAnalysis.dll prüfen.
 # <für einige einfache Fälle gelöst, Rec nicht, With Rec nicht, CurrPage nicht, CurrReport nicht und und und>
@@ -421,20 +462,42 @@ foreach($methodDeclaration in $methodDeclarations){
     $methodDataList += $methodData    
 }
 
-$methodDataList| Format-Table -GroupBy "Path" -Property Path, Method, Line, Content
+$methodDataList| Format-Table -GroupBy FileName -Property FileName, Method, Line, Content  
 
-# IDEE: Via approximativen Stringvergleich werden die umgewandelten Strings miteinander verglichen und die Abweichung bewertet.
+# IDEE: Via approximativen Stringvergleich werden die umgewandelten MethodenbodyStrings miteinander verglichen und die Abweichung bewertet.
 # Dafür sind Textdistanzalgorithmen geeignet. Welche davon am besten ist, müssen wird nur prüfen. 
 # Zur Auswahl stehen HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient 
 # Die besten Ergebnisse hatte ich gefühlt mit JaccardDistance. Die Test waren aber nicht variabel genug, um sicher zu sein.
 # Gegebenenfalls müssen wir einen eigenen Score basteln. Beispiel wie sowas gehen könnte: https://github.com/gravejester/Communary.PASM/blob/master/Functions/Get-FuzzyMatchScore.ps1
-Install-HelperModules
 
-# Anwendungsbeispiel $a  wird mit $b Distanzverglichen
+# Experemetieren mit Distanzverglichen
 #$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
 #$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
-$a = 'rec.reset;rec.setfilter(number,''%1..%2'',1,5);ifrec.findsetthenbeginrepeatuntilrec.next=0;end;'
+#$a = 'rec.reset;rec.setfilter(number,''%1..%2'',1,5);ifrec.findsetthenbeginrepeatuntilrec.next=0;end;'
 #$a = 'integer.reset;integer.setfilter(number,''%1..%2'',1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
-$b = 'integer.reset;integer.setfilter(number,''%1..%2'',1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
-$result = Match-Approximatelly $a $b
-Write-Host $result
+#$b = 'integer.reset;integer.setfilter(number,''%1..%2'',1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
+#$result = Match-Approximatelly $a $b
+#Write-Host $result
+
+# Konkrete Anwendung
+Install-HelperModules
+$compareResults = Compare-Methods $methodDataList
+
+
+# Ergebnisausgabe
+$displayResults = @()
+foreach ($compareResult in $compareResults){
+    $displayResults += [pscustomobject]@{
+        "File1" = $compareResult.MethodData1.FileName
+        "Method1" = $compareResult.MethodData1.Method
+        "Line1" = $compareResult.MethodData1.Line
+        "File2" = $compareResult.MethodData2.FileName
+        "Method2" = $compareResult.MethodData2.Method
+        "Line2" = $compareResult.MethodData2.Line
+        "Scrore" = $compareResult.Score.Score
+        "MatchEvaluation" = $compareResult.Score.MatchEvaluation
+        "Algorithm"  = "<$($compareResult.Score.Algorithm)>"
+    }
+}
+$displayResults | Format-Table
+  

@@ -225,6 +225,28 @@ function Get-BodyNode{
     return $MethodDeclarationSyntaxNode.Body    
 }
 
+function New-MethodData{
+     param (         
+        [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.MethodDeclarationSyntax] $MethodDeclarationSyntaxNode        
+    )           
+    $location = $MethodDeclarationSyntaxNode.GetLocation()
+    $methodName = "$($MethodDeclarationSyntaxNode.Name)"
+    $lineSpan = $location.GetLineSpan()
+    $linePosition = $lineSpan.StartLinePosition
+    $lineNo = $linePosition.Line
+    $filePath = $location.SourceTree.FilePath
+    $content = New-MethodBodyAsOneLiner $MethodDeclarationSyntaxNode
+    $result = [pscustomobject]@{
+        "Path" = $filePath
+        "Method" = $methodName
+        "Line" = $lineNo
+        "SyntaxNode" = $MethodDeclarationSyntaxNode
+        "Content" = $content
+    }
+    return $result
+}
+
 function Contains-ChildKind{
      param (               
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
@@ -342,9 +364,7 @@ function New-MethodBodyAsOneLiner{
     $Statements = $body.Statements
     foreach($Statement in $Statements){
         $SerializedString += Apply-Serialization $MethodDeclarationSyntaxNode $Statement
-    }
-    Write-Host "Ausgabe für $($MethodDeclarationSyntaxNode.Name): $SerializedString"
-
+    }    
     return $SerializedString
 }
 
@@ -352,33 +372,33 @@ function New-MethodBodyAsOneLiner{
 # Hier geht der interessante Teil los
 ################################################################
 
-# 1.) 
-Install-HelperModules
 
-# 2.) Alle Compiler DLL geladen, so dass sie via Powershell nutzbar sind
+# 1.) Alle Compiler DLLs laden, so dass sie via Powershell nutzbar sind
 Import-CompilerDlls $alcCompilerBinDirpath
 
-# 3.) Hier wird ein Visual Studio Code Workspace Editor Host Instanz erzeugt. Das hï¿½chste Abstarktionslayer, welchen ich vorgefunden habe.
+# 2.) Hier wird ein Visual Studio Code Workspace Editor Host Instanz erzeugt. Den höchsten Abstarktionslayer, welchen ich vorgefunden habe.
 $vsCodeWorkSpace = New-VSCodeWorkspace 
 
-# 4.) Fï¿½ge ein Projekt der Umgebung hinzu. Wie in VS-Code auch, kann das Objekt VSCodeWorkspace mehrere Projekte verwalten.
+# 3.) Füge ein Projekt der Umgebung hinzu. Wie in VS-Code auch, kann das Objekt VSCodeWorkspace mehrere Projekte verwalten.
 Add-ProjectPath $vsCodeWorkSpace $demoProjectDirPath
 
-# 5.) Extrahiere aus dem einzigen Projekt ein "Project" Objekt.
+# 4.) Extrahiere aus dem einzigen Projekt ein "Project" Objekt.
 $project = Get-Projects $vsCodeWorkSpace | Select-Object -First 1
 
-# 6.) Unterhalb eines Projektes gibt es jede Menge Strukturen. Unter anderem auch ein "Document" Objekt, dass den Dateipfad als Name hat.
+# 5.) Unterhalb eines Projektes gibt es jede Menge Strukturen. Unter anderem auch ein "Document" Objekt, dass den Dateipfad als Namen enthält hat.
 $document = Get-Document $project -DocumentName $documentName
 $documentState = Get-DocumentState $document
 $syntaxTree = Get-DocumentSyntaxTree $document
-$rootSyntaxNode = Get-DocumentRootSyntaxNode $document # SyntaxNode Struktur kenn ich grob. Ziemlich detailiert und komplex.
-$SemanticModel = Get-DocumentSemanticModel $document # Ist das besser geeignet als Syntax Knoten?
+$rootSyntaxNode = Get-DocumentRootSyntaxNode $document # SyntaxNode Struktur kenne ich grob. Ziemlich detailiert und komplex.
+$SemanticModel = Get-DocumentSemanticModel $document # Ist das besser geeignet als Syntax Knoten? Keine Ahnung, was damit möglich ist.
 
-# Hier meine vorläufige Idee
-# <gelöst> Wie bekomme ich eine Methoden-Object? Syntax-Knoten oder semantische Model (was auch immer das ist?)
+# Umsetzung meiner vorläufigen Idee
+# Wie bekomme ich eine Methoden-Object? Syntax-Knoten oder semantische Model (was auch immer das ist?)
+# <gelöst mit Syntax Knoten>
 $methodDeclarations = Select-MethodDeclarationNodes $rootSyntaxNode
 
-# Wie komme ich an die Variablen und ParameterList einer Methode? (Wieso? Ich will Variablennamen umbenennenen. Beispiel: SalesLineLoc soll zu "Sales Line" werden)
+# Wie komme ich an die Variablen und Parameterliste einer Methode? 
+# Wieso? Ich will Variablennamen durch Umbenennenen vereinheitlichen. Beispiel: SalesLineLoc soll zu "Sales Line" werden.)
 # <gelöst> 
 foreach($methodDeclaration in $methodDeclarations){
     $variableNodes = Select-VariableNodes $methodDeclaration 
@@ -389,23 +409,28 @@ foreach($methodDeclaration in $methodDeclarations){
 # <gelöst> 
 $bodyNode = Get-BodyNode $methodDeclaration 
 
-# Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette im Stile von Stringify. 
+# Umwandlung der Anweisungen in einer Methode in eine Einzeiler-Zeichenkette ähnlich Stringify-Funktionalität. 
 # Dabei werden Variablenname durch ihren Typ ersetzt (Also aus SalesLineLoc wird "Sales Line"). Besondere Herausforderung: Rec muss auch zum Typen umgewandelt werden: Also aus Rec.SetRange oder SetRange => "Sales Line".SetRange
-# Tipp für die Analyse: IlSpy (gibt es neuerdings im Windows-Store) => Microsoft.Dynamics.Nav.CodeAnalysis.dll
-# <für einige Fälle gelöst, Rec nicht, With Rec nicht, CurrPage nicht, CurrReport nicht und und und>
+# Tipp für die Analyse: Mit IlSpy (gibt es neuerdings im Windows-Store) die Microsoft.Dynamics.Nav.CodeAnalysis.dll prüfen.
+# <für einige einfache Fälle gelöst, Rec nicht, With Rec nicht, CurrPage nicht, CurrReport nicht und und und>
+$methodDataList= @()
 foreach($methodDeclaration in $methodDeclarations){
-    $methodBodyOneLiner = New-MethodBodyAsOneLiner $methodDeclaration
+
+    # Wrappen des Methodedeklarationknoten in ein Methodendata Objekt, die für unsere Zwecke geeigneter sind.         
+    $methodData = New-MethodData $methodDeclaration    
+    $methodDataList += $methodData    
 }
 
-# TODO: Sammlung der umgewandelten Strings in ein Dictionary  <PositionsInfo, Umgewandelte Zeichenkette>.
-
+$methodDataList| Format-Table -GroupBy "Path" -Property Path, Method, Line, Content
 
 # IDEE: Via approximativen Stringvergleich werden die umgewandelten Strings miteinander verglichen und die Abweichung bewertet.
-# Müssen prüfen, welche Algorithmus am geeignesten ist. 
+# Dafür sind Textdistanzalgorithmen geeignet. Welche davon am besten ist, müssen wird nur prüfen. 
 # Zur Auswahl stehen HammingDistance, JaccardDistance, JaccardIndex, JaroDistance, JaroWinklerDistance, LevenshteinDistance, LongestCommonSubsequence, LongestCommonSubstring, OverlapCoefficient 
+# Die besten Ergebnisse hatte ich gefühlt mit JaccardDistance. Die Test waren aber nicht variabel genug, um sicher zu sein.
 # Gegebenenfalls müssen wir einen eigenen Score basteln. Beispiel wie sowas gehen könnte: https://github.com/gravejester/Communary.PASM/blob/master/Functions/Get-FuzzyMatchScore.ps1
+Install-HelperModules
 
-
+# Anwendungsbeispiel $a  wird mit $b Distanzverglichen
 #$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
 #$a = 'integer.reset;integer.setrange(number,1,5);ifinteger.findsetthenbeginrepeatuntilinteger.next=0;end;'
 $a = 'rec.reset;rec.setfilter(number,''%1..%2'',1,5);ifrec.findsetthenbeginrepeatuntilrec.next=0;end;'

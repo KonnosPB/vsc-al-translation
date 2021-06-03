@@ -1,0 +1,119 @@
+{
+	"name": "al-translation-extension",
+	"displayName": "AL Translation Extension",
+	"description": "Translation support for Business Central Development",
+	"version": "0.0.1",
+	"publisher": "KonnosPB",
+	"enableProposedApi": true,
+	"engines": {
+		"vscode": "^1.52.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"activationEvents": [
+		"onView:TranslateElementsView",
+		"onLanguage:al"
+	],
+	"license": "MIT",
+	"keywords": [
+		"AL",
+		"BC",
+		"Dynamics",
+		"Business Central"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"views": {
+			"explorer": [
+				{
+					"id": "TranslatableElementsView",
+					"name": "Translatable Elements"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "TranslatableElementsView.refreshEntry",
+				"title": "Refresh",
+				"icon": {
+					"light": "resources/light/refresh.svg",
+					"dark": "resources/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "TranslatableElementsView.nextEntry",
+				"title": "Next",
+				"icon": {
+					"light": "resources/light/arrow-down.svg",
+					"dark": "resources/dark/arrow-down.svg"
+				}
+			},
+			{
+				"command": "TranslatableElementsView.previousEntry",
+				"title": "Previous",
+				"icon": {
+					"light": "resources/light/arrow-up.svg",
+					"dark": "resources/dark/arrow-up.svg"
+				}
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{}
+			],
+			"view/title": [
+				{
+					"command": "TranslatableElementsView.refreshEntry",
+					"when": "view == TranslatableElementsView",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "nodeDependencies.editEntry",
+					"when": "view == nodeDependencies && viewItem == dependency",
+					"group": "inline"
+				},
+				{
+					"command": "nodeDependencies.deleteEntry",
+					"when": "view == nodeDependencies && viewItem == dependency"
+				}
+			]
+		},
+		"configuration": [
+			{
+				"title": "JSON Outline",
+				"properties": {
+					"jsonOutline.autorefresh": {
+						"type": "boolean",
+						"default": false
+					}
+				}
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"lint": "eslint . --ext .ts,.tsx"
+	},
+	"devDependencies": {
+		"@types/mkdirp": "^0.5.2",
+		"@types/node": "^12.12.0",
+		"@types/rimraf": "^2.0.2",
+		"@types/vscode": "^1.45.0",
+		"@typescript-eslint/eslint-plugin": "^4.16.0",
+		"@typescript-eslint/parser": "^4.16.0",
+		"eslint": "^7.21.0",
+		"typescript": "^4.2.2"
+	},
+	"dependencies": {
+		"jsonc-parser": "^0.4.2",
+		"ftp": "^0.3.10",
+		"mkdirp": "^0.5.1",
+		"rimraf": "^2.6.2",
+		"minimist": "^0.2.1"
+	}
+}

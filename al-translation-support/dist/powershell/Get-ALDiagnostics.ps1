@@ -23,7 +23,8 @@ function Import-CompilerDlls {
         throw "al compiler folder $CompilerFolder not found"
     }
 
-    $compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse    
+    #$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse    
+    $compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "Microsoft.Dynamics.Nav.CodeAnalysis.dll" -Recurse    
     foreach ($compilerDll in $compilerDlls) { 
         try{
             Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
@@ -437,18 +438,19 @@ function New-AnalysisReport {
     if (-not(Test-Path($AlFile))){
         Write-Result $resultObject
         return
-    }
-    Import-CompilerDlls -CompilerFolder $alcCompilerPath
+    }        
+    
+    Import-CompilerDlls -CompilerFolder $alcCompilerPath    
     $vsCodeProjectPath = Get-ProjectPath $AlFile
     if (-not $vsCodeProjectPath){
         # No project to file found. How to parse without knowing the runtime version? Aborting with empty result.
         Write-Result $resultObject
         return
-    }
-    $vsCodeWorkSpace = New-VSCodeWorkspace 
-    Add-ProjectPath $vsCodeWorkSpace $vsCodeProjectPath
-    $vsCodeProject = Get-Projects $vsCodeWorkSpace | Select-Object -First 1
-    $alDocument = Get-Document $vsCodeProject -DocumentName $AlFile
+    }    
+    $vsCodeWorkSpace = New-VSCodeWorkspace     
+    Add-ProjectPath $vsCodeWorkSpace $vsCodeProjectPath    
+    $vsCodeProject = Get-Projects $vsCodeWorkSpace | Select-Object -First 1    
+    $alDocument = Get-Document $vsCodeProject -DocumentName $AlFile    
     if ($checkApplicationArea){
         Test-ApplicationAreaValidity $alDocument $ValidApplicationAreas
     }

@@ -14,11 +14,9 @@ function Invoke(psCmd: string, args: string, callback?: (error: childProcessModu
 
 function getGetAlDiagnosticsPsScriptPath() {
     var scriptPath = path.join(path.dirname(__filename), "..", "dist", "powershell", "Get-ALDiagnostics.ps1");
-    //var scriptPath = `D:\\Repos\\GitHub\\KonnosPB\\vsc-al-translation\\al-translation-support\\src\\powershell\\Get-ALDiagnostics.ps1`
     return scriptPath;
 }
 
-//export async function getAlDiagnostics(fileToCheck: string, callback?:(execError: childProcessModule.ExecException | null, jsonResult: any)=>void):Promise<any> {    
 export async function getAlDiagnostics(alcCompilerPath: string | undefined, fileToCheck: string): Promise<any> {
 
     const powerShellScript = getGetAlDiagnosticsPsScriptPath();
@@ -36,19 +34,4 @@ export async function getAlDiagnostics(alcCompilerPath: string | undefined, file
         });
     });
     return promise;
-
-
-    //   Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
-    //     let jsonResult = JSON.parse("{}");
-    //     if (error) {
-    //       console.error(`getAlDiagnostics exec error: ${error}`);          
-    //       callback?.apply(error, jsonResult);  
-    //       return;
-    //     }
-    //     const resultString = stdout;
-    //     jsonResult = JSON.parse(resultString);      
-    //     //callback?(jsonResult):null;
-    //     callback?.apply(error, jsonResult);  
-
-    //   });
 }

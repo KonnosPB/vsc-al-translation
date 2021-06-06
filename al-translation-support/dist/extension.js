@@ -25,6 +25,18 @@ class ALExtendedCop {
         this.ctx.subscriptions.push(this.diagnosticCollection);
         this.ctx.subscriptions.push(vscode.commands.registerCommand(this.checkCommand, this.checkCommandHandler));
         this.diagnosticMap = new Map();
+        this.updateConfigurationData();
+    }
+    updateConfigurationData() {
+        try {
+            let alExtension = vscode.extensions.getExtension('ms-dynamics-smb.al');
+            this.alcCompilerPath = alExtension === null || alExtension === void 0 ? void 0 : alExtension.extensionPath;
+        }
+        catch (_a) { }
+        let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
+        if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.alcPath !== null && workSpaceConfiguration.alcPath !== undefined && workSpaceConfiguration.alcPath !== "") {
+            this.alcCompilerPath = workSpaceConfiguration.alcPath;
+        }
     }
     check(textDocument) {
         if (!textDocument) {
@@ -37,7 +49,8 @@ class ALExtendedCop {
         });
     }
     checkFile(canonicalFile) {
-        PowershellAdapter.getAlDiagnostics(canonicalFile)
+        this.updateConfigurationData();
+        PowershellAdapter.getAlDiagnostics(this.alcCompilerPath, canonicalFile)
             .then((jsonResult) => {
             console.log("Test");
             //errors.forEach(error => {
@@ -92,10 +105,10 @@ function getGetAlDiagnosticsPsScriptPath() {
     return scriptPath;
 }
 //export async function getAlDiagnostics(fileToCheck: string, callback?:(execError: childProcessModule.ExecException | null, jsonResult: any)=>void):Promise<any> {    
-function getAlDiagnostics(fileToCheck) {
+function getAlDiagnostics(alcCompilerPath, fileToCheck) {
     return __awaiter(this, void 0, void 0, function* () {
         const powerShellScript = getGetAlDiagnosticsPsScriptPath();
-        const args = fileToCheck;
+        const args = '${alcCompilerPath} ${fileToCheck}';
         var promise = new Promise((resolve, reject) => {
             Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
                 if (error) {

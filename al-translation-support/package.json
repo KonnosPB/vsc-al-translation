@@ -36,8 +36,14 @@
 				"kvs.alcPath": {
 					"type": ["string", null],
 					"default": null,
-					"description": "Specifies the al compiler file path to be used. Leave it empty to detect it automatically."					
+					"description": "Specifies the al compiler file path to be used. Leave it empty to detect it automatically."
+				},
+				"kvs.checkGlobalProcedures": {
+					"type": "boolean",
+					"default": true,
+					"description": "Checks for global accessible procedures. "
 				}
+				
 			}
 		}
 	},

@@ -17,10 +17,10 @@ function getGetAlDiagnosticsPsScriptPath() {
     return scriptPath;
 }
 
-export async function getAlDiagnostics(alcCompilerPath: string | undefined, fileToCheck: string): Promise<any> {
+export async function getAlDiagnostics(alcCompilerPath: string | undefined, fileToCheck: string, checkProcedureAccessibility: boolean, checkApplicationAreaValidity: boolean, validApplicationAreas: string): Promise<any> {
 
     const powerShellScript = getGetAlDiagnosticsPsScriptPath();
-    const args = '${alcCompilerPath} ${fileToCheck}';
+    const args = '${alcCompilerPath} ${fileToCheck} ${checkProcedureAccessibility} ${checkApplicationAreaValidity} ${validApplicationAreas}';
     var promise = new Promise<any>((resolve, reject) => {
         Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
             if (error) {

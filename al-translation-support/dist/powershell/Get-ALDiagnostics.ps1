@@ -1,13 +1,30 @@
 $alcCompilerPath = $args[0]
 $fileToCheck = $args[1]
-$checkProcedureAccessibility = $args[2]
+$checkGlobalProcedures = $args[2]
 $validApplicationAreas = $args[3]
-$checkApplicationArea = $args[4]
+$checkApplicationAreaValidity = $args[4]
 
 $Global:CurrentAlcCompilerPath = ""
 $ResultObject = [PSCustomObject]@{
     CheckedFile = $fileToCheck
     Diagnostics = @()    
+}
+
+function Import-CompilerDll{
+    param (
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string] $CompilerFolder,
+        [Parameter(Mandatory = $true, Position = 2)]
+        [string] $CompilerDll
+    )
+
+    $compilerDll = Get-ChildItem -Path $CompilerFolder -Include $CompilerDll -Recurse | Select-Object -First 1
+    if ($compilerDll){
+        #try{
+            #Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
+        #}catch{}
+        Add-Type -Path $compilerDll
+    }
 }
 
 function Import-CompilerDlls {
@@ -23,15 +40,44 @@ function Import-CompilerDlls {
         throw "al compiler folder $CompilerFolder not found"
     }
 
-    #$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse    
-    $compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "Microsoft.Dynamics.Nav.CodeAnalysis.dll" -Recurse    
-    foreach ($compilerDll in $compilerDlls) { 
-        try{
-            Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
-        }catch{}
-    }
+    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.CodeAnalysis.dll"
+    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll"
+    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll"    
+
+    #$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse        
+    #foreach ($compilerDll in $compilerDlls) { 
+    #    try{
+    #        Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
+    #    }catch{}
+    #}    
 
     $Global:CurrentAlcCompilerPath = $CompilerFolder;
+}
+
+function Test-PragmaDisabled {
+    param (         
+        [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxNode] $SyntaxNode,
+        [Parameter(Mandatory = $true, Position = 2, ValueFromPipeline = $true)]
+        [string] $PragmaType
+    )
+
+    $syntaxTree = $SyntaxNode.SyntaxTree
+    $alRootSyntaxNode = $syntaxTree.GetRoot()
+    $pragmas = $alRootSyntaxNode.DescendantTrivia() |  Where-Object { ($_.Kind -eq [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::PragmaWarningDirectiveTrivia -and ($_.SpanStart -lt $SyntaxNode.SpanStart))} | Select-Object -Last 1   
+    $pragmaDisabled = $false
+    foreach ($pragma in $pragmas){
+        $pragmaText = $pragma.ToString()
+        if ($pragmaText -match "disable +kvs_invalid_application_area"){
+            $pragmaDisabled = $true
+        }elseif ($pragmaText -match "restore +kvs_invalid_application_area"){
+            $pragmaDisabled = $false
+        }
+        if ($pragma.SpanStart -gt $SyntaxNode.SpanStart){
+            break;
+        }        
+    }        
+    return $pragmaDisabled
 }
 
 function Add-ProjectPath{
@@ -297,6 +343,7 @@ function Write-Result{
         [Parameter(Mandatory = $true, Position = 1)]
         [PSCustomObject]$ResultObject        
     )
+    Write-Host ">>>>>>>>>>>>>"
     ConvertTo-Json $ResultObject 
 }
 
@@ -391,36 +438,45 @@ function Test-ApplicationAreaValidity{
         return
     } 
 
+    $multiAppAreasInvalid = $false
     foreach($applicationAreaPropertyNode in $applicationAreaPropertyNodes){
-        $diagnosticDescriptionMessage = $null
-        foreach ($applicationAreaValue in $applicationAreaPropertyNode.Value.Values) {
-            $applicationAreaValueText = $applicationAreaValue.Identifier.ValueText
-            if (-not ($validApplicationAreas -ccontains $applicationAreaValueText)){
-                if (-not $diagnosticDescriptionMessage){
-                    $diagnosticDescriptionMessage = $applicationAreaValueText
-                }else{
-                    $diagnosticDescriptionMessage += ", $applicationAreaValueText"
+        if (-not (Test-PragmaDisabled $applicationAreaPropertyNode 'kvs_invalid_application_area')){
+            $diagnosticDescriptionMessage = $null
+            foreach ($applicationAreaValue in $applicationAreaPropertyNode.Value.Values) {
+                $applicationAreaValueText = $applicationAreaValue.Identifier.ValueText
+                if (-not ($validApplicationAreas -ccontains $applicationAreaValueText)){
+                    if (-not $diagnosticDescriptionMessage){
+                        $diagnosticDescriptionMessage = "ApplicationArea $applicationAreaValueText"
+                    }else{
+                        $multiAppAreasInvalid = $true
+                        $diagnosticDescriptionMessage += ", $applicationAreaValueText"
+                    }
                 }
-            }
-        }  
+            }  
 
-        if ($diagnosticDescriptionMessage) {
-            $diagnosticDescriptionMessage += " is invalid"
-            $applicationAreaPropertyValueNode = $applicationAreaPropertyNode.Value
-            $invalidApplicationAreaDiagnostic = [PSCustomObject]@{
-                DiagnosticSeverity = "Error" #Hidden, Info, Warning, Error
-                Title = "Invalid Application Area"
-                Description = $diagnosticDescriptionMessage
-                Position = $applicationAreaPropertyValueNode.Position
-                EndPosition = $applicationAreaPropertyValueNode.EndPosition
-                SpanStart = $applicationAreaPropertyValueNode.SpanStart
-                SpanEnd = $applicationAreaPropertyValueNode.SpanEnd
-                Width = $applicationAreaPropertyValueNode.Width
-                FullWidth = $applicationAreaPropertyValueNode.FullWidth
-                #Line = $applicationAreaPropertyValueNode.Location.GetLineSpan().StartLinePosition.Line  # Internal. 
-            }
-            $ResultObject.Diagnostics += $invalidApplicationAreaDiagnostic
-        }      
+            if ($diagnosticDescriptionMessage) {
+                if ($multiAppAreasInvalid){
+                    $diagnosticDescriptionMessage += " are"
+                }else{
+                    $diagnosticDescriptionMessage += " is"
+                }
+                $diagnosticDescriptionMessage += " not valid"
+                $applicationAreaPropertyValueNode = $applicationAreaPropertyNode.Value
+                $invalidApplicationAreaDiagnostic = [PSCustomObject]@{
+                    DiagnosticSeverity = "Error" #Hidden, Info, Warning, Error
+                    Title = "Invalid Application Area"
+                    Description = $diagnosticDescriptionMessage
+                    Position = $applicationAreaPropertyValueNode.Position
+                    EndPosition = $applicationAreaPropertyValueNode.EndPosition
+                    SpanStart = $applicationAreaPropertyValueNode.SpanStart
+                    SpanEnd = $applicationAreaPropertyValueNode.SpanEnd
+                    Width = $applicationAreaPropertyValueNode.Width
+                    FullWidth = $applicationAreaPropertyValueNode.FullWidth
+                    #Line = $applicationAreaPropertyValueNode.Location.GetLineSpan().StartLinePosition.Line  # Internal. 
+                }
+                $ResultObject.Diagnostics += $invalidApplicationAreaDiagnostic
+            }      
+        }
     }    
 }
 
@@ -431,7 +487,7 @@ function New-AnalysisReport {
         [Parameter(Mandatory = $true, Position = 2)]
         [string]$AlFile,
         [Parameter(Mandatory = $true, Position = 3)]
-        [boolean]$CheckApplicationArea,
+        [boolean]$checkApplicationAreaValidity,
         [Parameter(Mandatory = $true, Position = 4)]
         [string[]]$ValidApplicationAreas
     )
@@ -451,21 +507,35 @@ function New-AnalysisReport {
     Add-ProjectPath $vsCodeWorkSpace $vsCodeProjectPath    
     $vsCodeProject = Get-Projects $vsCodeWorkSpace | Select-Object -First 1    
     $alDocument = Get-Document $vsCodeProject -DocumentName $AlFile    
-    if ($checkApplicationArea){
+    if ($checkApplicationAreaValidity){
         Test-ApplicationAreaValidity $alDocument $ValidApplicationAreas
     }
 }
 
-
 $alcCompilerPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
-$fileToCheck = "D:\Repos\DevOps\Product_MED\Product_MED_AL\Extension\app\src\Page\AccessoryInfoFactbox.Page.al"
-$checkProcedureAccessibility = $true
+$fileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
+$checkGlobalProcedures = $true
 $validApplicationAreas += "KVSMEDAll"
-$checkApplicationArea = $true
+$checkApplicationAreaValidity = $true
 
 New-AnalysisReport -AlcCompilerPath $alcCompilerPath `
                    -AlFile $fileToCheck `
-                   -CheckApplicationArea $checkApplicationArea `
+                   -CheckApplicationArea $checkApplicationAreaValidity `
                    -ValidApplicationAreas $ValidApplicationAreas
 
 Write-Result $ResultObject
+
+<#
+$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse        
+foreach ($compilerDll in $compilerDlls) { 
+   try{
+        Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
+        $hostServices = [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Host.HostServices]::DefaultHost
+        $background = $true
+        $vsCodeWorkspace = New-Object 'Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace' -ArgumentList @($hostServices, $background)
+        Write-Host $compilerDll 
+    }catch{
+        #Write-Error $compilerDll 
+    }
+} 
+#> 

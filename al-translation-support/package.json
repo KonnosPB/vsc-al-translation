@@ -34,9 +34,8 @@
 			"title": "KVS",
 			"properties": {
 				"kvs.alcPath": {
-					"type": "string",
-					"default": "",
-					"format": "uri",
+					"type": ["string", null],
+					"default": null,
 					"description": "Specifies the al compiler file path to be used. Leave it empty to detect it automatically."					
 				}
 			}
@@ -45,6 +44,7 @@
 	"scripts": {
 		"vscode:prepublish": "webpack --mode production",
 		"webpack": "webpack --mode development",
+		"webpack-dev": "webpack --mode development --watch",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",

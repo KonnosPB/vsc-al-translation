@@ -34,16 +34,33 @@
 			"title": "KVS",
 			"properties": {
 				"kvs.alcPath": {
-					"type": ["string", null],
+					"type": [
+						"string",
+						null
+					],
 					"default": null,
 					"description": "Specifies the al compiler file path to be used. Leave it empty to detect it automatically."
 				},
 				"kvs.checkGlobalProcedures": {
 					"type": "boolean",
 					"default": true,
-					"description": "Checks for global accessible procedures. "
+					"description": "Checks for global accessible procedures."
+				},
+				"kvs.checkApplicationAreaValidity": {
+					"type": "boolean",
+					"default": true,
+					"description": "Checks for if the used application areas are correctly typed"
+				},
+				"kvs.validiApplicationAreas": {
+					"type": "string",
+					"default": "All",
+					"description": "Komma separated list of validated application area names. Examples: KVSAll or KVSAll,KVSFOO"
+				},
+				"kvs.checkTranslation": {
+					"type": "boolean",
+					"default": true,
+					"description": "Check stranslation such as missing translation, wrong placeholder (%1) handling."
 				}
-				
 			}
 		}
 	},

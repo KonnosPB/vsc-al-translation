@@ -1,55 +1,64 @@
-$alcCompilerPath = $args[0]
-$fileToCheck = $args[1]
-$checkGlobalProcedures = $args[2]
-$validApplicationAreas = $args[3]
-$checkApplicationAreaValidity = $args[4]
+param (
+    [Parameter]
+    [string] $AlcFolderPath,
+    [Parameter]
+    [switch] $CheckGlobalProcedures,
+    [Parameter]
+    [switch] $CheckApplicationAreaValidity,
+    [Parameter]
+    [switch] $CheckTranslation,
+    [Parameter]
+    [string] $ValidApplicationAreas,
+    [Parameter]
+    [string] $ALFileToCheck
+)
+
+$AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
+$ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
+$CheckApplicationAreaValidity = $true
+$ValidApplicationAreas = 'KVSMEDBanana'
+$CheckTranslation = $true
+$CheckGlobalProcedures = $true
+ 
+
+if (-not (Test-Path($AlcFolderPath))) {
+    throw "alc compiler folder path '$AlcFolderPath' not found"
+}
+
+$codeAnalysisDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.CodeAnalysis.dll" -Recurse | Select-Object -First 1
+if (-not (Test-Path($codeAnalysisDllItem.FullName))) {
+    throw "Microsoft.Dynamics.Nav.CodeAnalysis.dll not found in '$AlcFolderPath'"
+}
+$codeAnalysisWorkspacesDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll" -Recurse | Select-Object -First 1
+if (-not (Test-Path($codeAnalysisWorkspacesDllItem.FullName))) {
+    throw "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll not found in '$AlcFolderPath'"
+}
+$editorServicesProtocolDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll" -Recurse | Select-Object -First 1
+if (-not (Test-Path($editorServicesProtocolDllItem.FullName))) {
+    throw "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll not found in '$AlcFolderPath'"
+}
+
+if ($CheckApplicationAreaValidity) {
+    if ([String]::IsNullOrWhiteSpace($ValidApplicationAreas)) {
+        throw "ValidApplicationAreas not set but -CheckApplicationAreaValidity enabled"
+    }
+}
+
 
 $Global:CurrentAlcCompilerPath = ""
 $ResultObject = [PSCustomObject]@{
-    CheckedFile = $fileToCheck
+    CheckedFile = $ALFileToCheck
     Diagnostics = @()    
 }
 
-function Import-CompilerDll{
-    param (
-        [Parameter(Mandatory = $true, Position = 1)]
-        [string] $CompilerFolder,
-        [Parameter(Mandatory = $true, Position = 2)]
-        [string] $CompilerDll
-    )
-
-    $compilerDll = Get-ChildItem -Path $CompilerFolder -Include $CompilerDll -Recurse | Select-Object -First 1
-    if ($compilerDll){
-        #try{
-            #Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
-        #}catch{}
-        Add-Type -Path $compilerDll
-    }
-}
-
 function Import-CompilerDlls {
-    param (
-        [Parameter(Mandatory = $true, Position = 1)]
-        [string] $CompilerFolder
-    )
-    if ($Global:CurrentAlcCompilerPath -eq $CompilerFolder){
+    if ($Global:CurrentAlcCompilerPath -eq $CompilerFolder) {
         return;
     }
 
-    if (-not (Test-Path($CompilerFolder))){
-        throw "al compiler folder $CompilerFolder not found"
-    }
-
-    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.CodeAnalysis.dll"
-    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll"
-    Import-CompilerDll $CompilerFolder "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll"    
-
-    #$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse        
-    #foreach ($compilerDll in $compilerDlls) { 
-    #    try{
-    #        Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
-    #    }catch{}
-    #}    
+    Add-Type -Path $codeAnalysisDllItem.FullName
+    Add-Type -Path $codeAnalysisWorkspacesDllItem.FullName
+    Add-Type -Path $editorServicesProtocolDllItem.FullName
 
     $Global:CurrentAlcCompilerPath = $CompilerFolder;
 }
@@ -61,26 +70,26 @@ function Test-PragmaDisabled {
         [Parameter(Mandatory = $true, Position = 2, ValueFromPipeline = $true)]
         [string] $PragmaType
     )
-
     $syntaxTree = $SyntaxNode.SyntaxTree
     $alRootSyntaxNode = $syntaxTree.GetRoot()
-    $pragmas = $alRootSyntaxNode.DescendantTrivia() |  Where-Object { ($_.Kind -eq [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::PragmaWarningDirectiveTrivia -and ($_.SpanStart -lt $SyntaxNode.SpanStart))} | Select-Object -Last 1   
+    $pragmas = $alRootSyntaxNode.DescendantTrivia() | Where-Object { ($_.Kind -eq [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::PragmaWarningDirectiveTrivia -and ($_.SpanStart -lt $SyntaxNode.SpanStart)) } | Select-Object -Last 1   
     $pragmaDisabled = $false
-    foreach ($pragma in $pragmas){
+    foreach ($pragma in $pragmas) {
         $pragmaText = $pragma.ToString()
-        if ($pragmaText -match "disable +kvs_invalid_application_area"){
+        if ($pragmaText -match "disable +kvs_invalid_application_area") {
             $pragmaDisabled = $true
-        }elseif ($pragmaText -match "restore +kvs_invalid_application_area"){
+        }
+        elseif ($pragmaText -match "restore +kvs_invalid_application_area") {
             $pragmaDisabled = $false
         }
-        if ($pragma.SpanStart -gt $SyntaxNode.SpanStart){
+        if ($pragma.SpanStart -gt $SyntaxNode.SpanStart) {
             break;
         }        
     }        
     return $pragmaDisabled
 }
 
-function Add-ProjectPath{
+function Add-VisualStudioCodeProject {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace] $VSCodeWorkSpace,
@@ -93,19 +102,19 @@ function Add-ProjectPath{
     [System.Collections.Generic.List``1[Microsoft.Dynamics.Nav.CodeAnalysis.Diagnostics.Diagnostic]] $diagnostics = $null #New-Object 'System.Collections.Generic.List[S]'
     [Microsoft.Dynamics.Nav.CodeAnalysis.CommandLine.ProjectManifest] $projectManifest = $null
     [bool] $missingSymbols = $false
-    [System.Object[]] $tryAddOrUpdateProjectParameter =  $settings, $diagnostics, $projectManifest, $missingSymbols
+    [System.Object[]] $tryAddOrUpdateProjectParameter = $settings, $diagnostics, $projectManifest, $missingSymbols
     
-     # Rufe Methode mit folgender Signatur auf "internal bool TryAddOrUpdateProject(Settings settings, out IList<Diagnostic> diagnostics, out ProjectManifest? manifest, out bool missingSymbols)"
+    # Rufe Methode mit folgender Signatur auf "internal bool TryAddOrUpdateProject(Settings settings, out IList<Diagnostic> diagnostics, out ProjectManifest? manifest, out bool missingSymbols)"
     $tryAddOrUpdateProjectBindingFlags = [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::InvokeMethod
     $tryAddOrUpdateProjectBindingMethod = [Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace].GetMethod("TryAddOrUpdateProject", $tryAddOrUpdateProjectBindingFlags)
     $success = $tryAddOrUpdateProjectBindingMethod.Invoke($VSCodeWorkSpace, $tryAddOrUpdateProjectParameter)
-    if (-not $success){
+    if (-not $success) {
         throw "Could not add project $path to visual studio code workspace"
     }
     return $VSCodeWorkSpace
 }
 
-function Get-Projects{
+function Get-VisualStudioCodeProjects {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace] $VSCodeWorkSpace     
@@ -116,30 +125,29 @@ function Get-Projects{
 }
 
 
-function New-VSCodeWorkspace{    
+function New-VSCodeWorkspace {    
     $hostServices = [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Host.HostServices]::DefaultHost
     $background = $true
     $vsCodeWorkspace = New-Object 'Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace' -ArgumentList @($hostServices, $background)
     return $vsCodeWorkSpace
 }
 
-function Get-Document{
+function Get-ALDocument {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project,
         [Parameter(Mandatory = $true, Position = 2)]
         [string] $DocumentName
     )
-
-    foreach($Document in $Project.Documents){
-        if ([System.IO.Path]::GetFullPath($Document.Name) -eq [System.IO.Path]::GetFullPath($DocumentName)){
+    foreach ($Document in $Project.Documents) {
+        if ([System.IO.Path]::GetFullPath($Document.Name) -eq [System.IO.Path]::GetFullPath($DocumentName)) {
             return $Document
         }
     }
     return $null
 }
 
-function Get-RuntimeVersion{
+function Get-RuntimeVersion {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project        
@@ -150,20 +158,20 @@ function Get-RuntimeVersion{
 }
 
 
-function Get-DocumentState{
+function Get-ALDocumentState {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
     )
 
-      # Rufe Methode mit folgender Signatur auf "internal bool TryAddOrUpdateProject(Settings settings, out IList<Diagnostic> diagnostics, out ProjectManifest? manifest, out bool missingSymbols)"
+    # Rufe Methode mit folgender Signatur auf "internal bool TryAddOrUpdateProject(Settings settings, out IList<Diagnostic> diagnostics, out ProjectManifest? manifest, out bool missingSymbols)"
     $bindingFlags = [System.Reflection.BindingFlags]::NonPublic -bor [System.Reflection.BindingFlags]::Instance -bor [System.Reflection.BindingFlags]::Public -bor [System.Reflection.BindingFlags]::InvokeMethod
     $methodInfo = [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document].GetMethod("GetDocumentState", $bindingFlags)
     $documentState = $methodInfo.Invoke($Document, $null)
     return $documentState
 }
 
-function Get-DocumentSemanticModel{
+function Get-ALDocumentSemanticModel {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
@@ -173,7 +181,7 @@ function Get-DocumentSemanticModel{
 
 }
 
-function Get-DocumentSyntaxTree{
+function Get-ALDocumentSyntaxTree {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
@@ -182,31 +190,27 @@ function Get-DocumentSyntaxTree{
     return $SyntaxTree    
 }
 
-function Get-DocumentRootSyntaxNode{
+function Get-ALDocumentRootSyntaxNode {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
     )
-
     $syntaxNode = $Document.GetSyntaxRootAsync().GetAwaiter().GetResult()
     return $syntaxNode
 }
 
-
-function Get-SyntaxTree{
+function Get-SyntaxTree {
     param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project,
         [Parameter(Mandatory = $true, Position = 2)]
-        [string] $Path
+        [string] $ALPath
     )
-
-    $content = Get-Content -Path $Path -Raw -Encoding UTF8
-    #$version = New-Object "System.Version" $runtimeVersion
-    $version = Get-RuntimeVersion $project
+    $content = Get-Content -Path $ALPath -Raw -Encoding UTF8
+    $version = Get-RuntimeVersion $Project
     $parseOptions = New-Object "Microsoft.Dynamics.Nav.CodeAnalysis.ParseOptions" $version    
     try {
-        $syntaxTree = [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.SyntaxTree]::ParseObjectText($content, $Path, [System.Text.Encoding]::UTF8, $parseOptions);        
+        $syntaxTree = [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.SyntaxTree]::ParseObjectText($content, $ALPath, [System.Text.Encoding]::UTF8, $parseOptions);        
     }
     catch {
         Write-Warning "Failed to parse $($alFile)"
@@ -215,8 +219,8 @@ function Get-SyntaxTree{
     return $syntaxTree
 }
 
-function Get-ChildSyntaxNodes{
-     param (         
+function Get-ChildSyntaxNodes {
+    param (         
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxNode] $SyntaxNode,
         [Parameter(Mandatory = $true, Position = 2)]
@@ -227,50 +231,50 @@ function Get-ChildSyntaxNodes{
     return $childNodes
 }
 
-function Select-MethodDeclarationNodes{
-     param (         
+function Select-MethodDeclarationNodes {
+    param (         
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxNode] $SyntaxNode        
     )           
     return Get-ChildSyntaxNodes $SyntaxNode ([Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::MethodDeclaration)
 }
 
-function Select-VariableNodes{
-     param (         
+function Select-VariableNodes {
+    param (         
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.MethodDeclarationSyntax] $MethodDeclarationSyntaxNode        
     )           
     return $MethodDeclarationSyntaxNode.Variables    
 }
 
-function Select-ParameterListNodes{
-     param (         
+function Select-ParameterListNodes {
+    param (         
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.MethodDeclarationSyntax] $MethodDeclarationSyntaxNode        
     )           
     return $MethodDeclarationSyntaxNode.ParameterList    
 }
 
-function Get-BodyNode{
-     param (         
+function Get-BodyNode {
+    param (         
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.MethodDeclarationSyntax] $MethodDeclarationSyntaxNode        
     )           
     return $MethodDeclarationSyntaxNode.Body    
 }
 
-function Get-ProjectPath{
+function Get-ProjectFolderPath {
     param (
         [Parameter(Mandatory = $true, Position = 1)]
         [string]$AlFile        
     )
     $currentPath = $AlFile;
-    do{
+    do {
         $currentPath = [System.IO.Path]::GetDirectoryName($currentPath);
         $vscodeDir = [System.IO.Path]::Combine($currentPath, ".vscode");
     } until ((Test-Path($vscodeDir)) -or ($vscodeDir -eq [System.IO.Path]::GetPathRoot($vscodeDir)))
 
-    if ($vscodeDir -eq [System.IO.Path]::GetPathRoot($vscodeDir)){
+    if ($vscodeDir -eq [System.IO.Path]::GetPathRoot($vscodeDir)) {
         return $null
     }
     return $currentPath
@@ -281,7 +285,7 @@ function Get-ObjectInfo {
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
     )
-    $alRootSyntaxNode = Get-DocumentRootSyntaxNode $Document
+    $alRootSyntaxNode = Get-ALDocumentRootSyntaxNode $Document
     $childNodes = [Linq.Enumerable]::ToArray($alRootSyntaxNode.ChildNodes())    
     $objectNode = $childNodes[0]
     if (-not $objectNode ) {
@@ -338,13 +342,14 @@ function Get-ObjectInfo {
 }
 
 
-function Write-Result{
+function Write-Result {
     param (
         [Parameter(Mandatory = $true, Position = 1)]
         [PSCustomObject]$ResultObject        
     )
-    Write-Host ">>>>>>>>>>>>>"
+    Write-Host ">>>ResultObject>>>"
     ConvertTo-Json $ResultObject 
+    Write-Host "<<<ResultObject<<<"
 }
 
 function Get-AllDescendantPropertyNodes { 
@@ -354,7 +359,7 @@ function Get-AllDescendantPropertyNodes {
         [Parameter(Mandatory = $true, Position = 2)]
         [string] $PropertyName
     )
-    $propertyNodes = $objectInfo.ObjectSyntaxNode.DescendantNodes() | Where-Object { ($_.Kind -eq [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::Property) -and ($_.Name.Identifier.ValueText -eq  $PropertyName)}   
+    $propertyNodes = $objectInfo.ObjectSyntaxNode.DescendantNodes() | Where-Object { ($_.Kind -eq [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxKind]::Property) -and ($_.Name.Identifier.ValueText -eq $PropertyName) }   
     return $propertyNodes    
 }
 
@@ -378,11 +383,11 @@ function Get-SyntaxNodeProperty {
 }
 
 function Get-ApplicationAreas { 
-        param (
+    param (
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $true)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document
     )    
-    $rootSyntaxNode = Get-DocumentRootSyntaxNode $Document
+    $rootSyntaxNode = Get-ALDocumentRootSyntaxNode $Document
     $applicationAreaPropertyNodes = Get-AllDescendantPropertyNodes $rootSyntaxNode 'ApplicationArea'
     return $applicationAreaPropertyNodes
 }
@@ -416,15 +421,15 @@ function Get-PageActions {
 }
 
 
-function Test-ApplicationAreaValidity{
+function Test-ApplicationAreaValidity {
     param (         
         [Parameter(Mandatory = $true, Position = 1)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document,
         [Parameter(Mandatory = $true, Position = 2)]
         [string[]] $ValidApplicationAreas
-        )        
+    )        
 
-    if (-not $ValidApplicationAreas){
+    if (-not $ValidApplicationAreas) {
         return
     }
 
@@ -439,15 +444,16 @@ function Test-ApplicationAreaValidity{
     } 
 
     $multiAppAreasInvalid = $false
-    foreach($applicationAreaPropertyNode in $applicationAreaPropertyNodes){
-        if (-not (Test-PragmaDisabled $applicationAreaPropertyNode 'kvs_invalid_application_area')){
+    foreach ($applicationAreaPropertyNode in $applicationAreaPropertyNodes) {
+        if (-not (Test-PragmaDisabled $applicationAreaPropertyNode 'kvs_invalid_application_area')) {
             $diagnosticDescriptionMessage = $null
             foreach ($applicationAreaValue in $applicationAreaPropertyNode.Value.Values) {
                 $applicationAreaValueText = $applicationAreaValue.Identifier.ValueText
-                if (-not ($validApplicationAreas -ccontains $applicationAreaValueText)){
-                    if (-not $diagnosticDescriptionMessage){
+                if (-not ($ValidApplicationAreas -ccontains $applicationAreaValueText)) {
+                    if (-not $diagnosticDescriptionMessage) {
                         $diagnosticDescriptionMessage = "ApplicationArea $applicationAreaValueText"
-                    }else{
+                    }
+                    else {
                         $multiAppAreasInvalid = $true
                         $diagnosticDescriptionMessage += ", $applicationAreaValueText"
                     }
@@ -455,23 +461,24 @@ function Test-ApplicationAreaValidity{
             }  
 
             if ($diagnosticDescriptionMessage) {
-                if ($multiAppAreasInvalid){
+                if ($multiAppAreasInvalid) {
                     $diagnosticDescriptionMessage += " are"
-                }else{
+                }
+                else {
                     $diagnosticDescriptionMessage += " is"
                 }
                 $diagnosticDescriptionMessage += " not valid"
                 $applicationAreaPropertyValueNode = $applicationAreaPropertyNode.Value
                 $invalidApplicationAreaDiagnostic = [PSCustomObject]@{
                     DiagnosticSeverity = "Error" #Hidden, Info, Warning, Error
-                    Title = "Invalid Application Area"
-                    Description = $diagnosticDescriptionMessage
-                    Position = $applicationAreaPropertyValueNode.Position
-                    EndPosition = $applicationAreaPropertyValueNode.EndPosition
-                    SpanStart = $applicationAreaPropertyValueNode.SpanStart
-                    SpanEnd = $applicationAreaPropertyValueNode.SpanEnd
-                    Width = $applicationAreaPropertyValueNode.Width
-                    FullWidth = $applicationAreaPropertyValueNode.FullWidth
+                    Title              = "Invalid Application Area"
+                    Description        = $diagnosticDescriptionMessage
+                    Position           = $applicationAreaPropertyValueNode.Position
+                    EndPosition        = $applicationAreaPropertyValueNode.EndPosition
+                    SpanStart          = $applicationAreaPropertyValueNode.SpanStart
+                    SpanEnd            = $applicationAreaPropertyValueNode.SpanEnd
+                    Width              = $applicationAreaPropertyValueNode.Width
+                    FullWidth          = $applicationAreaPropertyValueNode.FullWidth
                     #Line = $applicationAreaPropertyValueNode.Location.GetLineSpan().StartLinePosition.Line  # Internal. 
                 }
                 $ResultObject.Diagnostics += $invalidApplicationAreaDiagnostic
@@ -483,47 +490,43 @@ function Test-ApplicationAreaValidity{
 function New-AnalysisReport {
     param (
         [Parameter(Mandatory = $true, Position = 1)]
-        [string]$AlcCompilerPath,
+        [string]$AlcFolderPath,
         [Parameter(Mandatory = $true, Position = 2)]
         [string]$AlFile,
         [Parameter(Mandatory = $true, Position = 3)]
-        [boolean]$checkApplicationAreaValidity,
+        [boolean]$CheckApplicationAreaValidity,
         [Parameter(Mandatory = $true, Position = 4)]
         [string[]]$ValidApplicationAreas
     )
-    if (-not(Test-Path($AlFile))){
+    if (-not(Test-Path($AlFile))) {
         Write-Result $resultObject
         return
     }        
     
-    Import-CompilerDlls -CompilerFolder $alcCompilerPath    
-    $vsCodeProjectPath = Get-ProjectPath $AlFile
-    if (-not $vsCodeProjectPath){
+    Import-CompilerDlls -CompilerFolder $AlcFolderPath    
+    $vsCodeProjectPath = Get-ProjectFolderPath $AlFile
+    if (-not $vsCodeProjectPath) {
         # No project to file found. How to parse without knowing the runtime version? Aborting with empty result.
         Write-Result $resultObject
         return
     }    
     $vsCodeWorkSpace = New-VSCodeWorkspace     
-    Add-ProjectPath $vsCodeWorkSpace $vsCodeProjectPath    
-    $vsCodeProject = Get-Projects $vsCodeWorkSpace | Select-Object -First 1    
-    $alDocument = Get-Document $vsCodeProject -DocumentName $AlFile    
-    if ($checkApplicationAreaValidity){
+    Add-VisualStudioCodeProject $vsCodeWorkSpace $vsCodeProjectPath    
+    $vsCodeProject = Get-VisualStudioCodeProjects $vsCodeWorkSpace | Select-Object -First 1    
+    $alDocument = Get-ALDocument $vsCodeProject -DocumentName $AlFile    
+    if ($CheckApplicationAreaValidity) {
         Test-ApplicationAreaValidity $alDocument $ValidApplicationAreas
     }
+    Write-Result $resultObject
 }
 
-$alcCompilerPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
-$fileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
-$checkGlobalProcedures = $true
-$validApplicationAreas += "KVSMEDAll"
-$checkApplicationAreaValidity = $true
+New-AnalysisReport -AlcFolderPath $AlcFolderPath `
+    -AlFile $ALFileToCheck `
+    -CheckApplicationArea $CheckApplicationAreaValidity `
+    -ValidApplicationAreas $ValidApplicationAreas `
 
-New-AnalysisReport -AlcCompilerPath $alcCompilerPath `
-                   -AlFile $fileToCheck `
-                   -CheckApplicationArea $checkApplicationAreaValidity `
-                   -ValidApplicationAreas $ValidApplicationAreas
 
-Write-Result $ResultObject
+#Write-Result $ResultObject
 
 <#
 $compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse        

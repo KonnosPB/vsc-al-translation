@@ -1,5 +1,6 @@
 import * as childProcessModule from 'child_process';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { resolve } from 'dns';
 import { stdout } from 'process';
 
@@ -17,20 +18,71 @@ function getGetAlDiagnosticsPsScriptPath() {
     return scriptPath;
 }
 
-export async function getAlDiagnostics(alcCompilerPath: string | undefined, fileToCheck: string, checkProcedureAccessibility: boolean, checkApplicationAreaValidity: boolean, validApplicationAreas: string): Promise<any> {
+function getDiagnostics(powershellOut: string){
 
+}
+
+export async function getAlDiagnostics(alcCompilerPath: string | undefined, alFileToCheck: string, checkGlobalProcedures: boolean, checkApplicationAreaValidity: boolean, validApplicationAreas: string, checkTranslation: boolean): Promise<Array<vscode.Diagnostic>> {
     const powerShellScript = getGetAlDiagnosticsPsScriptPath();
-    const args = '${alcCompilerPath} ${fileToCheck} ${checkProcedureAccessibility} ${checkApplicationAreaValidity} ${validApplicationAreas}';
+    let args = '-AlcFolderPath ${alcCompilerPath} -ALFileToCheck ${fileToCheck}';
+    if (checkGlobalProcedures){
+        args += ' -CheckGlobalProcedures'
+    }
+    if (checkApplicationAreaValidity){
+        args += ' -CheckApplicationAreaValidity'
+    }
+    if (checkTranslation){
+        args += ' -$CheckTranslation'
+    }
+
     var promise = new Promise<any>((resolve, reject) => {
-        Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
+        Invoke(powerShellScript, alFileToCheck, (error, stdout, stderr) => {
             if (error) {
                 console.error(`getAlDiagnostics exec error: ${error}`);
                 reject(error);
                 return;
             }
-            const resultString = stdout;
+            const startMarker = ">>>ResultObject>>>";
+            const stopMarker = "<<<ResultObject<<<";            
+            const startPos = stdout.indexOf(startMarker) + startMarker.length;
+            const endPos = stdout.indexOf(stopMarker);
+            if (startPos <= startMarker.length || endPos < 0)
+            {
+                const errorMessage = `Result object not found. Current output from script is ` + stdout;
+                console.error(errorMessage);
+                reject(errorMessage)
+                return
+            }
+            let diagnosticCollection = new Array<vscode.Diagnostic>();
+            const resultString = stdout.substring(startPos, endPos - startPos);
             const jsonResult = JSON.parse(resultString);
-            resolve(jsonResult);
+            jsonResult.Diagnostics.forEach((jDiagnostic: any) => {
+                let diagnosticRange = new vscode.Range(jDiagnostic.SpanStart, jDiagnostic.SpanEnd)
+                let diagnosticMessage = jDiagnostic.Description
+                let diagnosticSeverity : vscode.DiagnosticSeverity = vscode.DiagnosticSeverity.Error;                
+                switch(jDiagnostic.DiagnosticSeverity){
+                    case "Error": {
+                        diagnosticSeverity = vscode.DiagnosticSeverity.Error;
+                        break;
+                    }
+                    case "Hidden": {
+                        diagnosticSeverity = vscode.DiagnosticSeverity.Hint;
+                        break;
+                    }
+                    case "Info": {
+                        diagnosticSeverity = vscode.DiagnosticSeverity.Information;
+                        break;
+                    }
+                    case "Warning": {
+                        diagnosticSeverity = vscode.DiagnosticSeverity.Warning;
+                        break;
+                    }
+                }
+                let diagnostic = new vscode.Diagnostic(diagnosticRange, diagnosticMessage, diagnosticSeverity);
+                diagnosticCollection.concat(diagnostic);
+            });
+            
+            resolve(diagnosticCollection);
         });
     });
     return promise;

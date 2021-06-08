@@ -21,48 +21,103 @@ class ALExtendedCop {
             this.check(currentTextEditor === null || currentTextEditor === void 0 ? void 0 : currentTextEditor.document);
         };
         this.ctx = ctx;
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection('al');
+        this.diagnosticCollection = vscode.languages.createDiagnosticCollection('al-extended-cops');
         this.ctx.subscriptions.push(this.diagnosticCollection);
         this.ctx.subscriptions.push(vscode.commands.registerCommand(this.checkCommand, this.checkCommandHandler));
         this.diagnosticMap = new Map();
-        this.updateConfigurationData();
+        vscode.workspace.onDidOpenTextDocument(document => {
+            if (document.fileName.endsWith("al")) {
+                this.check(document);
+            }
+        });
+        vscode.workspace.onDidChangeTextDocument(evt => {
+            //this.check(evt.document), undefined, this.ctx.subscriptions
+            this.check(evt.document);
+        });
+        vscode.workspace.onDidCloseTextDocument((textDocument) => {
+            this.diagnosticCollection.delete(textDocument.uri);
+        }, null, this.ctx.subscriptions);
+        vscode.workspace.onDidSaveTextDocument(document => {
+            this.check(document);
+        });
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor) {
+                this.check(editor.document);
+            }
+        }, undefined, this.ctx.subscriptions);
+        vscode.workspace.textDocuments.forEach(document => {
+            this.check(document);
+        });
     }
-    updateConfigurationData() {
+    getALCCompilerPath() {
+        let alcCompilerPath = "";
         try {
             let alExtension = vscode.extensions.getExtension('ms-dynamics-smb.al');
-            this.alcCompilerPath = alExtension === null || alExtension === void 0 ? void 0 : alExtension.extensionPath;
+            alcCompilerPath = alExtension === null || alExtension === void 0 ? void 0 : alExtension.extensionPath;
         }
         catch (_a) { }
         let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
         if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.alcPath !== null && workSpaceConfiguration.alcPath !== undefined && workSpaceConfiguration.alcPath !== "") {
-            this.alcCompilerPath = workSpaceConfiguration.alcPath;
+            alcCompilerPath = workSpaceConfiguration.alcPath;
         }
+        return alcCompilerPath;
+    }
+    getCheckGlobalProcedures() {
+        let checkGlobalProcedures = true;
+        let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
+        if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.checkGlobalProcedures !== null && workSpaceConfiguration.checkGlobalProcedures !== undefined && workSpaceConfiguration.checkGlobalProcedures === false) {
+            checkGlobalProcedures = false;
+        }
+        return checkGlobalProcedures;
+    }
+    getCheckApplicationAreaValidity() {
+        let checkApplicationAreaValidity = true;
+        let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
+        if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.checkApplicationAreaValidity !== null && workSpaceConfiguration.checkApplicationAreaValidity !== undefined && workSpaceConfiguration.checkApplicationAreaValidity === false) {
+            checkApplicationAreaValidity = false;
+        }
+        return checkApplicationAreaValidity;
+    }
+    getTranslation() {
+        let checkTranslation = true;
+        let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
+        if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.checkTranslation !== null && workSpaceConfiguration.checkTranslation !== undefined && workSpaceConfiguration.checkTranslation === false) {
+            checkTranslation = false;
+        }
+        return checkTranslation;
+    }
+    getValidApplicationAreas() {
+        let validApplicationAreas = "";
+        let workSpaceConfiguration = vscode.workspace.getConfiguration('kvs');
+        if (workSpaceConfiguration !== null && workSpaceConfiguration !== undefined && workSpaceConfiguration.validApplicationAreas !== null && workSpaceConfiguration.validApplicationAreas !== undefined && workSpaceConfiguration.validApplicationAreas !== "") {
+            validApplicationAreas = workSpaceConfiguration.validApplicationAreas;
+        }
+        return validApplicationAreas;
+    }
+    getUri(fileName) {
+        //let path = fileName.split('\\')?.pop()?.split('/').pop() as string;        
+        let uri = vscode.Uri.parse(fileName, true);
+        return uri;
     }
     check(textDocument) {
         if (!textDocument) {
             return;
         }
-        this.diagnosticCollection.clear();
-        this.checkFile(textDocument.fileName);
-        this.diagnosticMap.forEach((diags, file) => {
-            this.diagnosticCollection.set(vscode.Uri.parse(file), diags);
-        });
-    }
-    checkFile(canonicalFile) {
-        this.updateConfigurationData();
-        PowershellAdapter.getAlDiagnostics(this.alcCompilerPath, canonicalFile)
-            .then((jsonResult) => {
-            console.log("Test");
-            //errors.forEach(error => {
-            //let canonicalFile = vscode.Uri.file(error.file).toString();
-            //let range = new vscode.Range(error.line-1, error.startColumn, error.line-1, error.endColumn);
-            let diagnostics = this.diagnosticMap.get(canonicalFile);
-            if (!diagnostics) {
-                diagnostics = [];
-            }
-            //diagnostics.push(new vscode.Diagnostic(range, error.msg, error.severity));
-            this.diagnosticMap.set(canonicalFile, diagnostics);
-            //});
+        const alcCompilerPath = this.getALCCompilerPath();
+        const checkGlobalProcedures = this.getCheckGlobalProcedures();
+        const validApplicationAreas = this.getValidApplicationAreas();
+        const checkApplicationAreaValidity = this.getCheckApplicationAreaValidity();
+        const checkTranslation = this.getTranslation();
+        PowershellAdapter.getAlDiagnostics(alcCompilerPath, textDocument.fileName, checkGlobalProcedures, checkApplicationAreaValidity, validApplicationAreas, checkTranslation)
+            .then((diagnostics) => {
+            //this.diagnosticCollection.delete(this.getUri(canonicalFile));
+            this.diagnosticCollection.set(textDocument.uri, diagnostics);
+            // this.diagnosticMap.set(canonicalFile, diagnostics);
+            // this.diagnosticMap.forEach((diags, file) => {                    
+            //     this.diagnosticCollection.set(this.getUri(file), diags);
+            // });
+        }).catch((reason) => {
+            this.diagnosticCollection.clear();
         });
     }
 }
@@ -91,49 +146,105 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getAlDiagnostics = void 0;
 const childProcessModule = __webpack_require__(/*! child_process */ "child_process");
 const path = __webpack_require__(/*! path */ "path");
+const vscode = __webpack_require__(/*! vscode */ "vscode");
 function Invoke(psCmd, args, callback) {
-    const cmd = `PowerShell.exe -ExecutionPolicy Bypass -file "${psCmd}"  ${args}`;
+    const cmd = `PowerShell.exe -ExecutionPolicy Bypass -file "${psCmd}" ${args}`;
     const options = {
         shell: true,
-        windowsHide: true
+        windowsHide: true,
     };
     return childProcessModule.exec(cmd, options, callback);
 }
 function getGetAlDiagnosticsPsScriptPath() {
     var scriptPath = path.join(path.dirname(__filename), "..", "dist", "powershell", "Get-ALDiagnostics.ps1");
-    //var scriptPath = `D:\\Repos\\GitHub\\KonnosPB\\vsc-al-translation\\al-translation-support\\src\\powershell\\Get-ALDiagnostics.ps1`
     return scriptPath;
 }
-//export async function getAlDiagnostics(fileToCheck: string, callback?:(execError: childProcessModule.ExecException | null, jsonResult: any)=>void):Promise<any> {    
-function getAlDiagnostics(alcCompilerPath, fileToCheck) {
+function GetResultObject(raw) {
+    let line = "";
+    let jResultObject = "";
+    let isResultObject = false;
+    for (var i = 0; i < raw.length + 1; i++) {
+        line += raw.charAt(i);
+        if (line.endsWith("\r\n")) {
+            let currentline = line.substring(0, line.length - 2);
+            line = "";
+            if (currentline.startsWith(">>>ResultObject>>>")) {
+                isResultObject = true;
+                currentline = "{";
+            }
+            if (currentline.startsWith("<<<ResultObject<<<")) {
+                isResultObject = false;
+                currentline = "";
+                break;
+            }
+            if (isResultObject) {
+                jResultObject += currentline;
+            }
+        }
+    }
+    ;
+    const jsonResult = JSON.parse(jResultObject);
+    return jsonResult;
+}
+function getAlDiagnostics(alcCompilerPath, alFileToCheck, checkGlobalProcedures, checkApplicationAreaValidity, validApplicationAreas, checkTranslation) {
     return __awaiter(this, void 0, void 0, function* () {
         const powerShellScript = getGetAlDiagnosticsPsScriptPath();
-        const args = '${alcCompilerPath} ${fileToCheck}';
+        let args = `-AlcFolderPath "${alcCompilerPath}" -ALFileToCheck "${alFileToCheck}"`;
+        if (checkGlobalProcedures) {
+            args += ` -CheckGlobalProcedures`;
+        }
+        if (checkApplicationAreaValidity) {
+            args += ` -CheckApplicationAreaValidity`;
+            args += ` -ValidApplicationAreas "${validApplicationAreas}"`;
+        }
+        if (checkTranslation) {
+            args += ` -CheckTranslation`;
+        }
         var promise = new Promise((resolve, reject) => {
-            Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
+            Invoke(powerShellScript, args, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`getAlDiagnostics exec error: ${error}`);
                     reject(error);
                     return;
                 }
-                const resultString = stdout;
-                const jsonResult = JSON.parse(resultString);
-                resolve(jsonResult);
+                if (stdout === "" && stderr !== "") {
+                    console.error(`getAlDiagnostics outputed error: ${stderr}`);
+                    reject(stderr);
+                    return;
+                }
+                let diagnosticCollection = new Array();
+                const jsonResult = GetResultObject(stdout);
+                jsonResult.Diagnostics.forEach((jDiagnostic) => {
+                    let startPos = new vscode.Position(jDiagnostic.StartLinePositionLine, jDiagnostic.StartCharacter);
+                    let endPos = new vscode.Position(jDiagnostic.EndLinePositionLine, jDiagnostic.EndCharacter);
+                    let diagnosticRange = new vscode.Range(startPos, endPos);
+                    let diagnosticMessage = jDiagnostic.Description;
+                    let diagnosticSeverity = vscode.DiagnosticSeverity.Error;
+                    switch (jDiagnostic.DiagnosticSeverity) {
+                        case "Error": {
+                            diagnosticSeverity = vscode.DiagnosticSeverity.Error;
+                            break;
+                        }
+                        case "Hidden": {
+                            diagnosticSeverity = vscode.DiagnosticSeverity.Hint;
+                            break;
+                        }
+                        case "Info": {
+                            diagnosticSeverity = vscode.DiagnosticSeverity.Information;
+                            break;
+                        }
+                        case "Warning": {
+                            diagnosticSeverity = vscode.DiagnosticSeverity.Warning;
+                            break;
+                        }
+                    }
+                    let diagnostic = new vscode.Diagnostic(diagnosticRange, diagnosticMessage, diagnosticSeverity);
+                    diagnosticCollection = diagnosticCollection.concat(diagnostic);
+                });
+                resolve(diagnosticCollection);
             });
         });
         return promise;
-        //   Invoke(powerShellScript, fileToCheck, (error, stdout, stderr) => {
-        //     let jsonResult = JSON.parse("{}");
-        //     if (error) {
-        //       console.error(`getAlDiagnostics exec error: ${error}`);          
-        //       callback?.apply(error, jsonResult);  
-        //       return;
-        //     }
-        //     const resultString = stdout;
-        //     jsonResult = JSON.parse(resultString);      
-        //     //callback?(jsonResult):null;
-        //     callback?.apply(error, jsonResult);  
-        //   });
     });
 }
 exports.getAlDiagnostics = getAlDiagnostics;
@@ -213,6 +324,7 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __webpack_require__(/*! vscode */ "vscode");
 const ALExtendedCop_1 = __webpack_require__(/*! ./core/ALExtendedCop */ "./src/core/ALExtendedCop.ts");
 let diagnosticCollection;
+let alExendedCop;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
@@ -233,6 +345,10 @@ function activate(context) {
     context.subscriptions.push(disposable);
 }
 exports.activate = activate;
+function onChange() {
+    const currentTextEditor = vscode.window.activeTextEditor;
+    alExendedCop.check(currentTextEditor === null || currentTextEditor === void 0 ? void 0 : currentTextEditor.document);
+}
 // this method is called when your extension is deactivated
 function deactivate() { }
 exports.deactivate = deactivate;

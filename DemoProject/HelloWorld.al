@@ -25,7 +25,7 @@ page 50100 TestPageExt
             {
                 Caption = 'Dummy Action';
                 Image = LineDescription;
-#pragma warning disable kvs_invalid_application_area
+#pragma warning disable kvs_invalid_application_area                
                 ApplicationArea = KVSMEDXYZ;
 #pragma warning restore kvs_invalid_application_area
 
@@ -82,7 +82,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo3(var IntVar: Record Integer)
+    local procedure AnalysisDemo3_2(var IntVar: Record Integer)
     begin
         IntVar.Reset();
         IntVar.SetRange(Number, 1, 5);

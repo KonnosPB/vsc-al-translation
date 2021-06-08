@@ -1,24 +1,18 @@
-param (
-    [Parameter]
-    [string] $AlcFolderPath,
-    [Parameter]
-    [switch] $CheckGlobalProcedures,
-    [Parameter]
-    [switch] $CheckApplicationAreaValidity,
-    [Parameter]
-    [switch] $CheckTranslation,
-    [Parameter]
-    [string] $ValidApplicationAreas,
-    [Parameter]
+param (    
+    [string] $AlcFolderPath,    
+    [switch] $CheckGlobalProcedures,    
+    [switch] $CheckApplicationAreaValidity,    
+    [switch] $CheckTranslation,    
+    [string] $ValidApplicationAreas,    
     [string] $ALFileToCheck
 )
 
-$AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
-$ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
-$CheckApplicationAreaValidity = $true
-$ValidApplicationAreas = 'KVSMEDBanana'
-$CheckTranslation = $true
-$CheckGlobalProcedures = $true
+# $AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
+# $ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
+# $CheckApplicationAreaValidity = $true
+# $ValidApplicationAreas = 'KVSMEDBanana'
+# $CheckTranslation = $true
+# $CheckGlobalProcedures = $true
  
 
 if (-not (Test-Path($AlcFolderPath))) {
@@ -26,15 +20,15 @@ if (-not (Test-Path($AlcFolderPath))) {
 }
 
 $codeAnalysisDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.CodeAnalysis.dll" -Recurse | Select-Object -First 1
-if (-not (Test-Path($codeAnalysisDllItem.FullName))) {
+if (-not (Test-Path -Path $codeAnalysisDllItem.FullName)) {
     throw "Microsoft.Dynamics.Nav.CodeAnalysis.dll not found in '$AlcFolderPath'"
 }
 $codeAnalysisWorkspacesDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll" -Recurse | Select-Object -First 1
-if (-not (Test-Path($codeAnalysisWorkspacesDllItem.FullName))) {
+if (-not (Test-Path -Path $codeAnalysisWorkspacesDllItem.FullName)) {
     throw "Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.dll not found in '$AlcFolderPath'"
 }
 $editorServicesProtocolDllItem = Get-ChildItem -Path $AlcFolderPath -Include "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll" -Recurse | Select-Object -First 1
-if (-not (Test-Path($editorServicesProtocolDllItem.FullName))) {
+if (-not (Test-Path -Path $editorServicesProtocolDllItem.FullName)) {
     throw "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll not found in '$AlcFolderPath'"
 }
 
@@ -348,7 +342,7 @@ function Write-Result {
         [PSCustomObject]$ResultObject        
     )
     Write-Host ">>>ResultObject>>>"
-    ConvertTo-Json $ResultObject 
+    ConvertTo-Json $ResultObject
     Write-Host "<<<ResultObject<<<"
 }
 
@@ -421,6 +415,24 @@ function Get-PageActions {
 }
 
 
+function Get-PropertyValuePosition{
+    param (
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Syntax.PropertySyntax] $propertySyntaxNote       
+    )
+    return Get-SyntaxNodePosition $propertySyntaxNote.Value
+}
+
+function Get-SyntaxNodePosition{
+    param (
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.SyntaxNode] $syntaxNote       
+    )
+
+    $location = $syntaxNote.GetLocation().GetLineSpan()    
+    return $location;
+}
+
 function Test-ApplicationAreaValidity {
     param (         
         [Parameter(Mandatory = $true, Position = 1)]
@@ -467,19 +479,19 @@ function Test-ApplicationAreaValidity {
                 else {
                     $diagnosticDescriptionMessage += " is"
                 }
-                $diagnosticDescriptionMessage += " not valid"
-                $applicationAreaPropertyValueNode = $applicationAreaPropertyNode.Value
+                $diagnosticDescriptionMessage += " invalid AL-EXT-COP(001))"
+
+                #Line = $applicationAreaPropertyValueNode.Location.GetLineSpan().StartLinePosition.Line  # Internal. 
+                $position = Get-PropertyValuePosition $applicationAreaPropertyNode
+
                 $invalidApplicationAreaDiagnostic = [PSCustomObject]@{
                     DiagnosticSeverity = "Error" #Hidden, Info, Warning, Error
                     Title              = "Invalid Application Area"
                     Description        = $diagnosticDescriptionMessage
-                    Position           = $applicationAreaPropertyValueNode.Position
-                    EndPosition        = $applicationAreaPropertyValueNode.EndPosition
-                    SpanStart          = $applicationAreaPropertyValueNode.SpanStart
-                    SpanEnd            = $applicationAreaPropertyValueNode.SpanEnd
-                    Width              = $applicationAreaPropertyValueNode.Width
-                    FullWidth          = $applicationAreaPropertyValueNode.FullWidth
-                    #Line = $applicationAreaPropertyValueNode.Location.GetLineSpan().StartLinePosition.Line  # Internal. 
+                    StartLinePositionLine = $position.StartLinePosition.Line
+                    StartCharacter    = $position.StartLinePosition.Character
+                    EndLinePositionLine  = $position.EndLinePosition.Line
+                    EndCharacter        = $position.EndLinePosition.Character
                 }
                 $ResultObject.Diagnostics += $invalidApplicationAreaDiagnostic
             }      

@@ -51,7 +51,7 @@
 					"default": true,
 					"description": "Checks for if the used application areas are correctly typed"
 				},
-				"kvs.validiApplicationAreas": {
+				"kvs.validApplicationAreas": {
 					"type": "string",
 					"default": "All",
 					"description": "Komma separated list of validated application area names. Examples: KVSAll or KVSAll,KVSFOO"

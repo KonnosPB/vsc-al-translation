@@ -26,9 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Display a message box to the user
 		vscode.window.showInformationMessage('Hello World from AL Translation Support!');
-	});
-
-	
+	});	
 
 	context.subscriptions.push(disposable);
 }

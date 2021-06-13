@@ -28,11 +28,11 @@ function GetResultObject(raw: string): any{
         if (line.endsWith("\r\n")){ 
             let currentline = line.substring(0, line.length-2);
             line = "";            
-            if (currentline.startsWith(">>>ResultObject>>>")){
+            if (currentline.startsWith(">>>")){
                 isResultObject = true;
                 currentline = "{";
             }
-            if (currentline.startsWith("<<<ResultObject<<<")){
+            if (currentline.startsWith("<<<")){
                 isResultObject = false;
                 currentline = "";
                 break;
@@ -47,16 +47,9 @@ function GetResultObject(raw: string): any{
 }
 
 
-export async function getAlDiagnostics(alcCompilerPath: string | undefined, alFileToCheck: string, checkGlobalProcedures: boolean, checkApplicationAreaValidity: boolean, validApplicationAreas: string, checkTranslation: boolean): Promise<Array<vscode.Diagnostic>> {
+export async function getAlDiagnostics(alcCompilerPath: string | undefined, alFileToCheck: string, checkTranslation: boolean): Promise<Array<vscode.Diagnostic>> {
     const powerShellScript = getGetAlDiagnosticsPsScriptPath();
-    let args = `-AlcFolderPath "${alcCompilerPath}" -ALFileToCheck "${alFileToCheck}"`;
-    if (checkGlobalProcedures){
-        args += ` -CheckGlobalProcedures`;
-    }
-    if (checkApplicationAreaValidity){
-        args += ` -CheckApplicationAreaValidity`;
-        args += ` -ValidApplicationAreas "${validApplicationAreas}"`;
-    }
+    let args = `-AlcFolderPath "${alcCompilerPath}" -ALFileToCheck "${alFileToCheck}"`;    
     if (checkTranslation){
         args += ` -CheckTranslation`;
     }

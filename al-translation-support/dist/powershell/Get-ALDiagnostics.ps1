@@ -1,18 +1,12 @@
 param (    
     [string] $AlcFolderPath,    
-    [switch] $CheckGlobalProcedures,    
-    [switch] $CheckApplicationAreaValidity,    
     [switch] $CheckTranslation,    
-    [string] $ValidApplicationAreas,    
     [string] $ALFileToCheck
 )
 
-# $AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
-# $ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
-# $CheckApplicationAreaValidity = $true
-# $ValidApplicationAreas = 'KVSMEDBanana'
-# $CheckTranslation = $true
-# $CheckGlobalProcedures = $true
+$AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
+$ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
+$CheckTranslation = $true
  
 
 if (-not (Test-Path($AlcFolderPath))) {
@@ -32,11 +26,40 @@ if (-not (Test-Path -Path $editorServicesProtocolDllItem.FullName)) {
     throw "Microsoft.Dynamics.Nav.EditorServices.Protocol.dll not found in '$AlcFolderPath'"
 }
 
+
 if ($CheckApplicationAreaValidity) {
     if ([String]::IsNullOrWhiteSpace($ValidApplicationAreas)) {
         throw "ValidApplicationAreas not set but -CheckApplicationAreaValidity enabled"
     }
 }
+
+$languageOutputterSourceCode = @"
+using System;
+using System.Globalization;
+using System.Xml;
+using System.Collections.Generic;
+using Microsoft.Dynamics.Nav.CodeAnalysis.Translation;
+using Microsoft.Dynamics.Nav.CodeAnalysis.Utilities;
+
+public class MyLanguageOutputter : Microsoft.Dynamics.Nav.CodeAnalysis.Translation.ILanguageFileOutputter
+{
+    public readonly List<Microsoft.Dynamics.Nav.CodeAnalysis.Translation.TranslationItem> TranslationItems;
+
+    public MyLanguageOutputter()
+    {
+        TranslationItems = new List<Microsoft.Dynamics.Nav.CodeAnalysis.Translation.TranslationItem>();
+    }
+
+    public void WriteDefaultNodesAndContinue(System.Xml.XmlWriter writer, string appName, string targetLanguage, System.Action action)
+    {
+    }
+
+	public void WriteLabel(System.Xml.XmlWriter writer, Microsoft.Dynamics.Nav.CodeAnalysis.Translation.TranslationItem translationItem)
+    {
+        TranslationItems.Add(translationItem);
+    }    
+}
+"@    # this here-string terminator needs to be at column zero
 
 
 $Global:CurrentAlcCompilerPath = ""
@@ -45,17 +68,44 @@ $ResultObject = [PSCustomObject]@{
     Diagnostics = @()    
 }
 
-function Import-CompilerDlls {
+function Import-CompilerDlls {    
     if ($Global:CurrentAlcCompilerPath -eq $CompilerFolder) {
         return;
     }
 
-    Add-Type -Path $codeAnalysisDllItem.FullName
+    Add-Type -Path $codeAnalysisDllItem.FullName    
     Add-Type -Path $codeAnalysisWorkspacesDllItem.FullName
     Add-Type -Path $editorServicesProtocolDllItem.FullName
+    Add-Type -TypeDefinition $languageOutputterSourceCode -Language CSharp -ReferencedAssemblies @($codeAnalysisDllItem.FullName, "System.Xml", "netstandard")
 
+    # https://stackoverflow.com/questions/32065124/can-we-implement-net-interfaces-in-powershell-scripts
+    
+
+   
+    # Class definition
+    <#
+    Class LanguageOutputter:Microsoft.Dynamics.Nav.CodeAnalysis.Translation.ILanguageFileOutputter {
+      [void]WriteDefaultNodesAndContinue($writer, $appName, $targetLanguage, $action){
+        Write-Host $writer
+      }
+      [void]WriteLabel($writer, $translationItem){         
+        Write-Host $writer
+      }
+    } 
+    #>  
     $Global:CurrentAlcCompilerPath = $CompilerFolder;
 }
+
+function New-LanguageOutputter{
+  param (         
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
+    )        
+
+    $result = New-Object 'MyLanguageOutputter'
+    return $result    
+}
+
 
 function Test-PragmaDisabled {
     param (         
@@ -105,7 +155,6 @@ function Add-VisualStudioCodeProject {
     if (-not $success) {
         throw "Could not add project $path to visual studio code workspace"
     }
-    return $VSCodeWorkSpace
 }
 
 function Get-VisualStudioCodeProjects {
@@ -341,9 +390,9 @@ function Write-Result {
         [Parameter(Mandatory = $true, Position = 1)]
         [PSCustomObject]$ResultObject        
     )
-    Write-Host ">>>ResultObject>>>"
+    Write-Host ">>>"
     ConvertTo-Json $ResultObject
-    Write-Host "<<<ResultObject<<<"
+    Write-Host "<<<"
 }
 
 function Get-AllDescendantPropertyNodes { 
@@ -499,6 +548,76 @@ function Test-ApplicationAreaValidity {
     }    
 }
 
+function Get-Compilation{
+    param (     
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project
+        )
+    $compilation = $Project.GetCompilationAsync().GetAwaiter().GetResult()
+    return $compilation
+}
+
+function Get-TranslationItems{
+    param (     
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project,
+        [Parameter(Mandatory = $true, Position = 2)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document    
+    )      
+    $myOutputter = New-LanguageOutputter $Document
+    $xmlWritterSettings = New-Object 'System.Xml.XmlWriterSettings' 
+    $xmlWritterSettings.Indent = $true
+    $xmlWritterSettings.Encoding = [System.Text.Encoding]::UTF8
+    $xmlWritterSettings.NewLineChars = "`r`n"
+
+    $compilation = Get-Compilation $Project
+    $compilation.GetType().Properties
+    $compiledModule = 
+
+    $memoryStream = New-Object 'System.IO.MemoryStream'
+    $writer = [System.Xml.XmlWriter]::Create($memoryStream, $xmlWritterSettings)
+
+    #$Document.
+
+
+   # LabelWriterVisitor labelWriterVisitor = new LabelWriterVisitor($writer, $outputter, $generateMode);
+   # compilation2.CompiledModule.Accept(labelWriterVisitor);
+
+    <#
+
+    XmlWriter writer = XmlWriter.Create(outputStream, DefaultXmlWriterSettings);
+	try
+	{
+		GenerateTranslationsMode generateMode = LanguageFileUtilities.GetGenerateTranslationsMode(compilation2);
+		outputter.WriteDefaultNodesAndContinue(writer, appName, null, delegate
+		{
+			GlobalLogger.LogVerbose("Collecting all the labels and generating the translation template file.");
+			LabelWriterVisitor labelWriterVisitor = new LabelWriterVisitor(writer, outputter, generateMode);
+			compilation2.CompiledModule.Accept(labelWriterVisitor);
+			labelWriterVisitor.ReportDiagnostics(diagnosticBag2);
+		});
+	}
+	finally
+	{
+		if (writer != null)
+		{
+			((IDisposable)writer).Dispose();
+		}
+	}
+#>
+
+}
+
+function Test-Translation{
+    param (         
+        [Parameter(Mandatory = $true, Position = 1)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Project] $Project,
+        [Parameter(Mandatory = $true, Position = 2)]
+        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document    
+    )          
+    $translationItems = Get-TranslationItems $Project $Document
+}
+
 function New-AnalysisReport {
     param (
         [Parameter(Mandatory = $true, Position = 1)]
@@ -506,9 +625,7 @@ function New-AnalysisReport {
         [Parameter(Mandatory = $true, Position = 2)]
         [string]$AlFile,
         [Parameter(Mandatory = $true, Position = 3)]
-        [boolean]$CheckApplicationAreaValidity,
-        [Parameter(Mandatory = $true, Position = 4)]
-        [string[]]$ValidApplicationAreas
+        [boolean]$CheckTranslation        
     )
     if (-not(Test-Path($AlFile))) {
         Write-Result $resultObject
@@ -524,33 +641,15 @@ function New-AnalysisReport {
     }    
     $vsCodeWorkSpace = New-VSCodeWorkspace     
     Add-VisualStudioCodeProject $vsCodeWorkSpace $vsCodeProjectPath    
-    $vsCodeProject = Get-VisualStudioCodeProjects $vsCodeWorkSpace | Select-Object -First 1    
+    $vsCodeProject = Get-VisualStudioCodeProjects $vsCodeWorkSpace | Select-Object -First 1          
+    $compilationOptions = $vsCodeProject.CompilationOptions
     $alDocument = Get-ALDocument $vsCodeProject -DocumentName $AlFile    
-    if ($CheckApplicationAreaValidity) {
-        Test-ApplicationAreaValidity $alDocument $ValidApplicationAreas
+    if ($CheckTranslation) {
+        Test-Translation $vsCodeProject $alDocument
     }
     Write-Result $resultObject
 }
 
 New-AnalysisReport -AlcFolderPath $AlcFolderPath `
     -AlFile $ALFileToCheck `
-    -CheckApplicationArea $CheckApplicationAreaValidity `
-    -ValidApplicationAreas $ValidApplicationAreas `
-
-
-#Write-Result $ResultObject
-
-<#
-$compilerDlls = Get-ChildItem -Path $CompilerFolder -Filter "*.dll" -Recurse        
-foreach ($compilerDll in $compilerDlls) { 
-   try{
-        Add-Type -Path "$($compilerDll.FullName)" -ErrorAction SilentlyContinue
-        $hostServices = [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Host.HostServices]::DefaultHost
-        $background = $true
-        $vsCodeWorkspace = New-Object 'Microsoft.Dynamics.Nav.EditorServices.Protocol.VsCodeWorkspace' -ArgumentList @($hostServices, $background)
-        Write-Host $compilerDll 
-    }catch{
-        #Write-Error $compilerDll 
-    }
-} 
-#> 
+    -CheckTranslation $CheckTranslation

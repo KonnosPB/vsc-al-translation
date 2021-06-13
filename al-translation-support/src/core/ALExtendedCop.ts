@@ -105,15 +105,12 @@ export class ALExtendedCop {
         }        
         const alcCompilerPath: string = this.getALCCompilerPath();
         const checkGlobalProcedures: boolean = this.getCheckGlobalProcedures();
-        const validApplicationAreas: string = this.getValidApplicationAreas();
-        const checkApplicationAreaValidity: boolean = this.getCheckApplicationAreaValidity();
+        // const validApplicationAreas: string = this.getValidApplicationAreas();
+        // const checkApplicationAreaValidity: boolean = this.getCheckApplicationAreaValidity();
         const checkTranslation: boolean = this.getTranslation();
         PowershellAdapter.getAlDiagnostics(
             alcCompilerPath,
             textDocument.fileName,
-            checkGlobalProcedures,
-            checkApplicationAreaValidity,
-            validApplicationAreas,
             checkTranslation
         )
             .then((diagnostics: Array<vscode.Diagnostic>) => {

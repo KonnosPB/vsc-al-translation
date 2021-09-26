@@ -1,0 +1,20 @@
+{
+  "name": "al-translation-webview",
+  "version": "0.0.1",
+  "description": "webview fpr visual studio code extension (prototyping)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "KonnosPB",
+  "license": "MIT",
+  "dependencies": {
+    "easy-xml-parser": "^1.0.3",
+    "fs": "0.0.1-security",
+    "typescript": "^4.4.3",
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "@types/node": "^16.10.1"
+  }
+}

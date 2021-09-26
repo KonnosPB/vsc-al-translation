@@ -1,3 +1,4 @@
 /al-translation-support/node_modules/*
 /al-translation-support/out/*
 /al-translation-support/dist/*
+/al-translation-support-webview/node_modules/*

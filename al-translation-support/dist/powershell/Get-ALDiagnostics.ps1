@@ -4,7 +4,7 @@ param (
     [string] $ALFileToCheck
 )
 
-$AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.1.453917\"
+$AlcFolderPath = "C:\Users\Kosta\.vscode\extensions\ms-dynamics-smb.al-7.2.475273\bin\"
 $ALFileToCheck = "D:\Repos\GitHub\KonnosPB\vsc-al-translation\DemoProject\HelloWorld.al"
 $CheckTranslation = $true
  
@@ -69,9 +69,9 @@ $ResultObject = [PSCustomObject]@{
 }
 
 function Import-CompilerDlls {    
-    if ($Global:CurrentAlcCompilerPath -eq $CompilerFolder) {
-        return;
-    }
+    #if ($Global:CurrentAlcCompilerPath -eq $CompilerFolder) {
+    #    return;
+    #}
 
     Add-Type -Path $codeAnalysisDllItem.FullName    
     Add-Type -Path $codeAnalysisWorkspacesDllItem.FullName
@@ -97,11 +97,6 @@ function Import-CompilerDlls {
 }
 
 function New-LanguageOutputter{
-  param (         
-        [Parameter(Mandatory = $true, Position = 1)]
-        [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document        
-    )        
-
     $result = New-Object 'MyLanguageOutputter'
     return $result    
 }
@@ -564,20 +559,41 @@ function Get-TranslationItems{
         [Parameter(Mandatory = $true, Position = 2)]
         [Microsoft.Dynamics.Nav.CodeAnalysis.Workspaces.Document] $Document    
     )      
-    $myOutputter = New-LanguageOutputter $Document
+    $myOutputter = New-LanguageOutputter    
+    if ($myOutputter ){
+        Write-Host $myOutputter
+    }
     $xmlWritterSettings = New-Object 'System.Xml.XmlWriterSettings' 
     $xmlWritterSettings.Indent = $true
     $xmlWritterSettings.Encoding = [System.Text.Encoding]::UTF8
-    $xmlWritterSettings.NewLineChars = "`r`n"
-
-    $compilation = Get-Compilation $Project
-    $compilation.GetType().Properties
-    $compiledModule = 
+    $xmlWritterSettings.NewLineChars = "`r`n"    
 
     $memoryStream = New-Object 'System.IO.MemoryStream'
     $writer = [System.Xml.XmlWriter]::Create($memoryStream, $xmlWritterSettings)
+    if ($writer ){
+        Write-Host $writer
+    }
+    $translationMode = [Microsoft.Dynamics.Nav.CodeAnalysis.Translation.LanguageFile.GenerateTranslationsMode]::All    
+    if ($translationMode ){
+        Write-Host $translationMode
+    }
+    $assembly = [System.Reflection.AssemblyName]::GetAssemblyName($codeAnalysisDllItem.FullName)
+    $assemblyName = $assembly.FullName
+    $typeName = 'Microsoft.Dynamics.Nav.CodeAnalysis.Translation.LabelWriterVisitor'
+    $ignoreCase = $true
+    $bindingFlags = [System.Reflection.BindingFlags]::NonPublic
+    [System.Reflection.Binder] $binder = $null
+    [object[]] $args = $writer, $myOutputter, $translationMode    
+    [System.Globalization.CultureInfo] $culture = $null
+    $activationAttributes = $null      
 
-    #$Document.
+
+    $labelWriterVisitor = [Activator]::CreateInstance($assemblyName, $typeName, $ignoreCase, $bindingFlags, $binder, $args, $culture, $activationAttributes)   #TODO findet Konstruktu nicht.
+
+
+    # $compilation = Get-Compilation $Project
+    # $compilation.GetType().Properties
+    # $compiledModule = 
 
 
    # LabelWriterVisitor labelWriterVisitor = new LabelWriterVisitor($writer, $outputter, $generateMode);

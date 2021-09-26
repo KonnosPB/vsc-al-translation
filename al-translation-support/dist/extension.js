@@ -105,10 +105,10 @@ class ALExtendedCop {
         }
         const alcCompilerPath = this.getALCCompilerPath();
         const checkGlobalProcedures = this.getCheckGlobalProcedures();
-        const validApplicationAreas = this.getValidApplicationAreas();
-        const checkApplicationAreaValidity = this.getCheckApplicationAreaValidity();
+        // const validApplicationAreas: string = this.getValidApplicationAreas();
+        // const checkApplicationAreaValidity: boolean = this.getCheckApplicationAreaValidity();
         const checkTranslation = this.getTranslation();
-        PowershellAdapter.getAlDiagnostics(alcCompilerPath, textDocument.fileName, checkGlobalProcedures, checkApplicationAreaValidity, validApplicationAreas, checkTranslation)
+        PowershellAdapter.getAlDiagnostics(alcCompilerPath, textDocument.fileName, checkTranslation)
             .then((diagnostics) => {
             //this.diagnosticCollection.delete(this.getUri(canonicalFile));
             this.diagnosticCollection.set(textDocument.uri, diagnostics);
@@ -168,11 +168,11 @@ function GetResultObject(raw) {
         if (line.endsWith("\r\n")) {
             let currentline = line.substring(0, line.length - 2);
             line = "";
-            if (currentline.startsWith(">>>ResultObject>>>")) {
+            if (currentline.startsWith(">>>")) {
                 isResultObject = true;
                 currentline = "{";
             }
-            if (currentline.startsWith("<<<ResultObject<<<")) {
+            if (currentline.startsWith("<<<")) {
                 isResultObject = false;
                 currentline = "";
                 break;
@@ -186,17 +186,10 @@ function GetResultObject(raw) {
     const jsonResult = JSON.parse(jResultObject);
     return jsonResult;
 }
-function getAlDiagnostics(alcCompilerPath, alFileToCheck, checkGlobalProcedures, checkApplicationAreaValidity, validApplicationAreas, checkTranslation) {
+function getAlDiagnostics(alcCompilerPath, alFileToCheck, checkTranslation) {
     return __awaiter(this, void 0, void 0, function* () {
         const powerShellScript = getGetAlDiagnosticsPsScriptPath();
         let args = `-AlcFolderPath "${alcCompilerPath}" -ALFileToCheck "${alFileToCheck}"`;
-        if (checkGlobalProcedures) {
-            args += ` -CheckGlobalProcedures`;
-        }
-        if (checkApplicationAreaValidity) {
-            args += ` -CheckApplicationAreaValidity`;
-            args += ` -ValidApplicationAreas "${validApplicationAreas}"`;
-        }
         if (checkTranslation) {
             args += ` -CheckTranslation`;
         }

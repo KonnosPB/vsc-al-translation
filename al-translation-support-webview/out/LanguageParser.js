@@ -103,10 +103,22 @@ var LanguageParser = /** @class */ (function () {
                         return [4 /*yield*/, this.loadContentsAsync(this.xlfFilePaths)];
                     case 2:
                         _b.fileContentMapping = _c.sent();
+                        this.availableLanguages = this.determineLanguages(this.fileContentMapping);
                         return [2 /*return*/];
                 }
             });
         });
+    };
+    LanguageParser.prototype.determineLanguages = function (fileContentMapping) {
+        var languages = [];
+        fileContentMapping.forEach(function (value, key) {
+            var json = value;
+            var langVal = json.xliff.file.$['target-language'];
+            if (langVal != undefined) {
+                languages.push(langVal);
+            }
+        });
+        return languages;
     };
     LanguageParser.prototype.loadContentsAsync = function (xlfFilePaths) {
         return __awaiter(this, void 0, void 0, function () {

@@ -52,128 +52,104 @@ const walk = (
     });
 };
 
-interface LanguageFileInfo {
-    Path : string;
+interface ILanguageFileInfo {
+    Path: string;
     jContent: any;
     Language: string;
     IsMain: boolean;
+    ModifiedDate: Date;
 }
 
 export class LanguageParser {
     private rootDirPath: string;
-    private languageFileInfo : LanguageFileInfo[];
-    private mainXlfFilePath: string;
-    private xlfFilePaths: string[];
-    private availableLanguages: string[];    
+    private languageFileInfo: ILanguageFileInfo[] = [];
+    private xlfFilePaths: string[] = [];
+    private lastIp
 
     constructor(rootDirPath: string) {
-        this.rootDirPath = rootDirPath;    
+        this.rootDirPath = rootDirPath;
     }
 
-    public async calcDataGridAsync() {                
+    public async calcDataGridAsync() {
         this.xlfFilePaths = await this.collectXlfFilesAsync(this.rootDirPath);
-
-
-        var promise = new Promise<string[]>(async (resolve, reject) => {
-            walk(this.rootDirPath,
-                (err: Error | null, results?: string[]) => {
-                    if (err != null) {
-                        reject(err);
-                    }
-                    if (results != null) {
-                        var languageFileInfo : ILanguageFileInfo[] = [];
-                        results.forEach(async filePath => {                            
-                            const xml = await fs.readFileSync(filePath, "utf8");
-                            parseString(xml,
-                            { explicitArray: false },
-                            function (error, jObj) {
-                                if (error != undefined) {
-                                    reject(error);                            
-                                }        
-                                if (jObj !== undefined) {
-                                    const targetLanguage = jObj.xliff.file.$['target-language'];
-                                    const sourceLanguage = jObj.xliff.file.$['source-language'];
-                                    const isMain = targetLanguage === sourceLanguage;
-                                    var languageInfo : ILanguageFileInfo = {    
-                                        Path : filePath,
-                                        jContent: jObj,
-                                        Language: targetLanguage,
-                                        IsMain: isMain
-                                    };
-                                    languageFileInfo.push(languageInfo);
-                                }
-                            });                                  
-                        });                        
-                        resolve(languageFileInfo);
-                    }
-                },
-                (f: string) => { return f.endsWith(".xlf"); }
-            );
-        });
-        return promise;
-        
-        this.fileContentMapping = await this.loadContentsAsync(this.xlfFilePaths);   
-        this.availableLanguages = this.determineLanguages(this.fileContentMapping);                    
+        this.languageFileInfo = await this.buildLanguageInfos(this.xlfFilePaths);
     }
 
-    private determineLanguages(fileContentMapping: Map<string, any>):string[]{
-        let languages : string[] = [];
-        fileContentMapping.forEach((value,key)=>{
-            const json = value;                        
-            const langVal =  json.xliff.file.$['target-language'];            
-            if (langVal != undefined){
-                languages.push(langVal);  
-            }          
+    public getLanguages(): string[] {
+        const languages: string[] = [];
+        this.languageFileInfo.forEach(element => {
+            languages.push(element.Language);
         });
         return languages;
     }
 
-    private getMainXlf(fileContentMapping: Map<string, any>):{[path: string]: [language:string]}{
-        let languages : string[] = [];
-        fileContentMapping.forEach((value,key)=>{
-            const json = value;                        
-            const sourceLangVal =  json.xliff.file.$['target-language'];            
-            const targetLangVal =  json.xliff.file.$['target-language'];            
-            if (sourceLangVal != undefined && targetLangVal != undefined && targetLangVal === sourceLangVal){
-                let result: {
-                        path : "$(key)",
-                        language : "$(targetLangVal)",
-                    }
-                return result;
-            }          
-        });
-        return null;
-    }
+    public async isDirtyAsync(): Promise<boolean> {
+        var promise = new Promise<boolean>(async (resolve, reject) => {
+            this.xlfFilePaths = await this.collectXlfFilesAsync(this.rootDirPath);
+            if (this.languageFileInfo.length !== this.xlfFilePaths.length) {
+                resolve(true);
+            }
 
-    private async loadContentsAsync(xlfFilePaths: string[]): Promise<Map<string, any>> {
-        var promise = new Promise<Map<string, any>>((resolve, reject) => {
-            let pathContentMapping = new Map<string, any>();
-            xlfFilePaths.forEach(async xlfFilePath => {
-                const xml = await fs.readFileSync(xlfFilePath, "utf8");
-                parseString(xml,
-                    { explicitArray: false },
-                    function (error, result) {
-                        if (error != undefined) {
-                            reject(error);                            
-                        }
-                        pathContentMapping.set(xlfFilePath, result);                                                
-                    });                    
+            let fileFound: boolean = false;
+            let modifiedDateChanged: boolean = false;
+            this.xlfFilePaths.forEach(filePath => {
+                fileFound = false;
+                modifiedDateChanged = false;
+                this.languageFileInfo.forEach(elem => {
+                    if (filePath === elem.Path) {
+                        fileFound = true;
+                        fs.stat(filePath, (err, stats) => {
+                            if (stats.mtime !== elem.ModifiedDate) {
+                                modifiedDateChanged = true;
+                            }
+                        });
+                    }
+                });
+                if (!fileFound) {
+                    resolve(true);
+                }
+                if (modifiedDateChanged) {
+                    resolve(true);
+                }
             });
-            resolve(pathContentMapping);
-        });
+
+            resolve(false);
+        });        
         return promise;
     }
 
-    private getMainXlfFile(fileContentMapping: Map<string, any>): string {
-        fileContentMapping.forEach((value, key)=>{
-            if (key.endsWith("g.xlf")){
-                const json = value;
-                // if (json.xliff.file."source-language" == json.xliff.file."target-language"){
-                //     return key;
-                // }
-            }
+    private async buildLanguageInfos(xlfFilePaths: string[]): Promise<ILanguageFileInfo[]> {
+        var promise = new Promise<ILanguageFileInfo[]>((resolve, reject) => {
+            let languageFileInfos: ILanguageFileInfo[] = [];
+            xlfFilePaths.forEach(async filePath => {
+                const xml = await fs.readFileSync(filePath, "utf8");
+                parseString(xml,
+                    { explicitArray: false },
+                    function (error, jObj) {
+                        if (error != undefined) {
+                            reject(error);
+                        }
+                        if (jObj !== undefined) {
+                            const targetLanguage = jObj.xliff.file.$['target-language'];
+                            const sourceLanguage = jObj.xliff.file.$['source-language'];
+                            const isMain = targetLanguage === sourceLanguage;
+                            fs.stat(filePath, (err, stats) => {
+                                let modifiedDate = stats.mtime;
+                                var languageInfo: ILanguageFileInfo = {
+                                    Path: filePath,
+                                    jContent: jObj,
+                                    Language: targetLanguage,
+                                    IsMain: isMain,
+                                    ModifiedDate: modifiedDate
+                                };
+                                languageFileInfos.push(languageInfo);
+                            });
+                        }
+                    });
+            });
+            resolve(languageFileInfos);
         });
-        return "";
+        return promise;
     }
 
     private async collectXlfFilesAsync(rootDirPath: string): Promise<string[]> {

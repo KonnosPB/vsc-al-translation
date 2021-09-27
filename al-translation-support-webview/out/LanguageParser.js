@@ -86,7 +86,8 @@ var walk = function (dir, done, filter) {
 };
 var LanguageParser = /** @class */ (function () {
     function LanguageParser(rootDirPath) {
-        this.fileContentMapping = new Map();
+        this.languageFileInfo = [];
+        this.xlfFilePaths = [];
         this.rootDirPath = rootDirPath;
     }
     LanguageParser.prototype.calcDataGridAsync = function () {
@@ -100,66 +101,114 @@ var LanguageParser = /** @class */ (function () {
                     case 1:
                         _a.xlfFilePaths = _c.sent();
                         _b = this;
-                        return [4 /*yield*/, this.loadContentsAsync(this.xlfFilePaths)];
+                        return [4 /*yield*/, this.buildLanguageInfos(this.xlfFilePaths)];
                     case 2:
-                        _b.fileContentMapping = _c.sent();
-                        this.availableLanguages = this.determineLanguages(this.fileContentMapping);
+                        _b.languageFileInfo = _c.sent();
                         return [2 /*return*/];
                 }
             });
         });
     };
-    LanguageParser.prototype.determineLanguages = function (fileContentMapping) {
+    LanguageParser.prototype.getLanguages = function () {
         var languages = [];
-        fileContentMapping.forEach(function (value, key) {
-            var json = value;
-            var langVal = json.xliff.file.$['target-language'];
-            if (langVal != undefined) {
-                languages.push(langVal);
-            }
+        this.languageFileInfo.forEach(function (element) {
+            languages.push(element.Language);
         });
         return languages;
     };
-    LanguageParser.prototype.loadContentsAsync = function (xlfFilePaths) {
+    LanguageParser.prototype.isDirtyAsync = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var promise;
+            var _this = this;
+            return __generator(this, function (_a) {
+                promise = new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
+                    var _a, fileFound, modifiedDateChanged;
+                    var _this = this;
+                    return __generator(this, function (_b) {
+                        switch (_b.label) {
+                            case 0:
+                                _a = this;
+                                return [4 /*yield*/, this.collectXlfFilesAsync(this.rootDirPath)];
+                            case 1:
+                                _a.xlfFilePaths = _b.sent();
+                                if (this.languageFileInfo.length !== this.xlfFilePaths.length) {
+                                    resolve(true);
+                                }
+                                fileFound = false;
+                                modifiedDateChanged = false;
+                                this.xlfFilePaths.forEach(function (filePath) {
+                                    fileFound = false;
+                                    modifiedDateChanged = false;
+                                    _this.languageFileInfo.forEach(function (elem) {
+                                        if (filePath === elem.Path) {
+                                            fileFound = true;
+                                            fs.stat(filePath, function (err, stats) {
+                                                if (stats.mtime !== elem.ModifiedDate) {
+                                                    modifiedDateChanged = true;
+                                                }
+                                            });
+                                        }
+                                    });
+                                    if (!fileFound) {
+                                        resolve(true);
+                                    }
+                                    if (modifiedDateChanged) {
+                                        resolve(true);
+                                    }
+                                });
+                                resolve(false);
+                                return [2 /*return*/];
+                        }
+                    });
+                }); });
+                return [2 /*return*/, promise];
+            });
+        });
+    };
+    LanguageParser.prototype.buildLanguageInfos = function (xlfFilePaths) {
         return __awaiter(this, void 0, void 0, function () {
             var promise;
             var _this = this;
             return __generator(this, function (_a) {
                 promise = new Promise(function (resolve, reject) {
-                    var pathContentMapping = new Map();
-                    xlfFilePaths.forEach(function (xlfFilePath) { return __awaiter(_this, void 0, void 0, function () {
+                    var languageFileInfos = [];
+                    xlfFilePaths.forEach(function (filePath) { return __awaiter(_this, void 0, void 0, function () {
                         var xml;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
-                                case 0: return [4 /*yield*/, fs.readFileSync(xlfFilePath, "utf8")];
+                                case 0: return [4 /*yield*/, fs.readFileSync(filePath, "utf8")];
                                 case 1:
                                     xml = _a.sent();
-                                    (0, xml2js_1.parseString)(xml, { explicitArray: false }, function (error, result) {
+                                    (0, xml2js_1.parseString)(xml, { explicitArray: false }, function (error, jObj) {
                                         if (error != undefined) {
                                             reject(error);
                                         }
-                                        pathContentMapping.set(xlfFilePath, result);
+                                        if (jObj !== undefined) {
+                                            var targetLanguage_1 = jObj.xliff.file.$['target-language'];
+                                            var sourceLanguage = jObj.xliff.file.$['source-language'];
+                                            var isMain_1 = targetLanguage_1 === sourceLanguage;
+                                            fs.stat(filePath, function (err, stats) {
+                                                var modifiedDate = stats.mtime;
+                                                var languageInfo = {
+                                                    Path: filePath,
+                                                    jContent: jObj,
+                                                    Language: targetLanguage_1,
+                                                    IsMain: isMain_1,
+                                                    ModifiedDate: modifiedDate
+                                                };
+                                                languageFileInfos.push(languageInfo);
+                                            });
+                                        }
                                     });
                                     return [2 /*return*/];
                             }
                         });
                     }); });
-                    resolve(pathContentMapping);
+                    resolve(languageFileInfos);
                 });
                 return [2 /*return*/, promise];
             });
         });
-    };
-    LanguageParser.prototype.getMainXlfFile = function (fileContentMapping) {
-        fileContentMapping.forEach(function (value, key) {
-            if (key.endsWith("g.xlf")) {
-                var json_1 = value;
-                // if (json.xliff.file."source-language" == json.xliff.file."target-language"){
-                //     return key;
-                // }
-            }
-        });
-        return "";
     };
     LanguageParser.prototype.collectXlfFilesAsync = function (rootDirPath) {
         return __awaiter(this, void 0, void 0, function () {

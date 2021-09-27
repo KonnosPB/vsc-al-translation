@@ -75,7 +75,10 @@ export class LanguageParser {
         this.languageFileInfo = await this.buildLanguageInfos(this.xlfFilePaths);
     }
 
-    public getLanguages(): string[] {
+    public async getLanguagesAsync(): Promise<string[]> {
+        if (await this.isDirtyAsync()){
+            await this.calcDataGridAsync();
+        }        
         const languages: string[] = [];
         this.languageFileInfo.forEach(element => {
             languages.push(element.Language);

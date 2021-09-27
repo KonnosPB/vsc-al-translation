@@ -60,6 +60,19 @@ interface ILanguageFileInfo {
     ModifiedDate: Date;
 }
 
+interface IDataSource {
+    Id: string;
+    TotalStatus: string;
+    OriginalText: string;
+    OriginalCopyText: string;
+    TranslationState: string;        
+    TranslatedText: string;    
+    NavComment: string;
+    NavObject: string;
+    NavElement: string;
+    NavSubelement: string;
+}
+
 export class LanguageParser {
     private rootDirPath: string;
     private languageFileInfo: ILanguageFileInfo[] = [];
@@ -85,6 +98,8 @@ export class LanguageParser {
         });
         return languages;
     }
+
+    public async Build
 
     public async isDirtyAsync(): Promise<boolean> {
         var promise = new Promise<boolean>(async (resolve, reject) => {

@@ -40,17 +40,24 @@ var LanguageParser_1 = require("./LanguageParser");
 var lp = new LanguageParser_1.LanguageParser('D:\\Repos\\GitHub\\KonnosPB\\vsc-al-translation\\DemoTranslationFiles\\Med\\');
 var result = lp.calcDataGridAsync();
 result.then(function (value) { return __awaiter(void 0, void 0, void 0, function () {
-    var isDirty;
+    var isDirty, dataSource, diagnostics;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0: return [4 /*yield*/, lp.isDirtyAsync()];
             case 1:
                 isDirty = _a.sent();
                 console.info(isDirty);
+                return [4 /*yield*/, lp.buildDataAsync()];
+            case 2:
+                dataSource = _a.sent();
+                return [4 /*yield*/, lp.getDiagnosticsAsync()];
+            case 3:
+                diagnostics = _a.sent();
                 return [2 /*return*/];
         }
     });
 }); });
 result.catch(function (reason) {
+    console.error(reason);
 });
 //# sourceMappingURL=index.js.map

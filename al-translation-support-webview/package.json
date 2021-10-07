@@ -9,6 +9,7 @@
   "author": "KonnosPB",
   "license": "MIT",
   "dependencies": {
+    "@types/tabulator-tables": "^4.9.4",
     "easy-xml-parser": "^1.0.3",
     "fs": "0.0.1-security",
     "typescript": "^4.4.3",

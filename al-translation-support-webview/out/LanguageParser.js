@@ -109,12 +109,273 @@ var LanguageParser = /** @class */ (function () {
             });
         });
     };
-    LanguageParser.prototype.getLanguages = function () {
-        var languages = [];
-        this.languageFileInfo.forEach(function (element) {
-            languages.push(element.Language);
+    LanguageParser.prototype.getLanguagesAsync = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var languages;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.isDirtyAsync()];
+                    case 1:
+                        if (!_a.sent()) return [3 /*break*/, 3];
+                        return [4 /*yield*/, this.calcDataGridAsync()];
+                    case 2:
+                        _a.sent();
+                        _a.label = 3;
+                    case 3:
+                        languages = [];
+                        this.languageFileInfo.forEach(function (element) {
+                            languages.push(element.LanguageCode);
+                        });
+                        return [2 /*return*/, languages];
+                }
+            });
         });
-        return languages;
+    };
+    LanguageParser.prototype.buildDataAsync = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var sourceDataArr, targetDataArr;
+            var _this = this;
+            return __generator(this, function (_a) {
+                sourceDataArr = [];
+                targetDataArr = [];
+                this.data = [];
+                this.languageFileInfo.filter(function (sourceLanguageInfo) {
+                    return sourceLanguageInfo.IsMain;
+                }).forEach(function (sourceLanguageInfo) {
+                    var jSourceContent = sourceLanguageInfo.jContent;
+                    var jSourceTransUnitArr = jSourceContent.xliff.file.body.group["trans-unit"];
+                    jSourceTransUnitArr.forEach(function (jSourceTransUnit) {
+                        var sourceDataObj = _this.convert(sourceLanguageInfo.LanguageCode, jSourceTransUnit);
+                        sourceDataArr.push(sourceDataObj);
+                    });
+                });
+                this.languageFileInfo.filter(function (targetLanguageInfos) {
+                    return !targetLanguageInfos.IsMain;
+                }).forEach(function (targetLanguageInfo) {
+                    var jTargetContent = targetLanguageInfo.jContent;
+                    var jTargetTransUnitArr = jTargetContent.xliff.file.body.group["trans-unit"];
+                    jTargetTransUnitArr.forEach(function (jTargettTransUnit) {
+                        var targetDataobj = _this.convert(targetLanguageInfo.LanguageCode, jTargettTransUnit);
+                        targetDataArr.push(targetDataobj);
+                    });
+                });
+                sourceDataArr.forEach(function (sourceData) {
+                    sourceData.Handled = true;
+                    var matchingTargetData = targetDataArr.find(function (targetData) {
+                        return targetData.Handled === false && sourceData.Id === targetData.Id;
+                    });
+                    if (matchingTargetData !== undefined) {
+                        matchingTargetData.Handled = true;
+                        var merge = {
+                            Id: sourceData.Id,
+                            SourceLanguageCode: sourceData.SourceLanguageCode,
+                            TargetLanguageCode: matchingTargetData.SourceLanguageCode,
+                            OverallStatus: "",
+                            SourceText: sourceData.SourceText,
+                            SourceCopyText: matchingTargetData.SourceText,
+                            State: matchingTargetData.State,
+                            TargetText: matchingTargetData.TargetText,
+                            NavComment: sourceData.NavComment,
+                            NavObject: sourceData.NavObject,
+                            NavElement: sourceData.NavElement,
+                            NavSubelement: sourceData.NavSubelement,
+                            Handled: false
+                        };
+                        _this.data.push(merge);
+                    }
+                    else {
+                        var merge = {
+                            Id: sourceData.Id,
+                            SourceLanguageCode: sourceData.SourceLanguageCode,
+                            TargetLanguageCode: "",
+                            OverallStatus: "",
+                            SourceText: "",
+                            SourceCopyText: "",
+                            State: "",
+                            TargetText: sourceData.TargetText,
+                            NavComment: sourceData.NavComment,
+                            NavObject: sourceData.NavObject,
+                            NavElement: sourceData.NavElement,
+                            NavSubelement: sourceData.NavSubelement,
+                            Handled: false
+                        };
+                        _this.data.push(merge);
+                    }
+                });
+                targetDataArr.filter(function (targetData) {
+                    return targetData.Handled === false;
+                }).forEach(function (targetData) {
+                    targetData.Handled = true;
+                    var merge = {
+                        Id: targetData.Id,
+                        SourceLanguageCode: targetData.SourceLanguageCode,
+                        TargetLanguageCode: targetData.SourceLanguageCode,
+                        OverallStatus: "",
+                        SourceText: "",
+                        SourceCopyText: targetData.SourceText,
+                        State: targetData.State,
+                        TargetText: targetData.TargetText,
+                        NavComment: targetData.NavComment,
+                        NavObject: targetData.NavObject,
+                        NavElement: targetData.NavElement,
+                        NavSubelement: targetData.NavSubelement,
+                        Handled: false
+                    };
+                    _this.data.push(merge);
+                });
+                return [2 /*return*/, this.data];
+            });
+        });
+    };
+    LanguageParser.prototype.getDiagnosticsAsync = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var diagnostics;
+            var _this = this;
+            return __generator(this, function (_a) {
+                diagnostics = [];
+                this.data.forEach(function (data) { return __awaiter(_this, void 0, void 0, function () {
+                    var partDiagnostics;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0: return [4 /*yield*/, this.getDiagnosticAsync(data)];
+                            case 1:
+                                partDiagnostics = _a.sent();
+                                diagnostics.concat(partDiagnostics);
+                                return [2 /*return*/];
+                        }
+                    });
+                }); });
+                return [2 /*return*/, diagnostics];
+            });
+        });
+    };
+    LanguageParser.prototype.getDiagnosticAsync = function (data) {
+        return __awaiter(this, void 0, void 0, function () {
+            var diagnostics, diagnostic, diagnostic, sourcePlaceHolderMatchArr, targetPlaceHolderMatchArr, diagnostic, counter_1;
+            return __generator(this, function (_a) {
+                diagnostics = [];
+                if (data.SourceText !== data.SourceCopyText) {
+                    data.OverallStatus = "Error";
+                    diagnostic = {
+                        ErrorCode: 'TRANSLATE-0001',
+                        Severity: "error",
+                        Id: data.Id,
+                        Message: "Source text of " + data.TargetLanguageCode + " not up to date"
+                    };
+                    diagnostics.push(diagnostic);
+                }
+                ;
+                if (data.SourceText !== "" && data.TargetText === "") {
+                    data.OverallStatus = "Error";
+                    diagnostic = {
+                        ErrorCode: 'TRANSLATE-0002',
+                        Severity: "error",
+                        Id: data.Id,
+                        Message: "Translation of " + data.SourceText + " in " + data.TargetLanguageCode + " language file missing"
+                    };
+                    diagnostics.push(diagnostic);
+                }
+                else {
+                    sourcePlaceHolderMatchArr = data.SourceText.match(/%\d+/);
+                    targetPlaceHolderMatchArr = data.TargetText.match(/%\d+/);
+                    if (sourcePlaceHolderMatchArr !== null && targetPlaceHolderMatchArr !== null) {
+                        if (sourcePlaceHolderMatchArr.length != targetPlaceHolderMatchArr.length) {
+                            data.OverallStatus = "Warning";
+                            diagnostic = {
+                                ErrorCode: 'TRANSLATE-0003',
+                                Severity: "error",
+                                Id: data.Id,
+                                Message: "Mismatch of placeholders amount between source (" + sourcePlaceHolderMatchArr.length + ") and target (" + targetPlaceHolderMatchArr.length + "). "
+                            };
+                            diagnostics.push(diagnostic);
+                        }
+                        ;
+                    }
+                    if (sourcePlaceHolderMatchArr !== null) {
+                        counter_1 = 0;
+                        sourcePlaceHolderMatchArr.forEach(function (m) {
+                            counter_1++;
+                            var expectedPlaceHolderIndex = "%" + counter_1;
+                            if (m !== expectedPlaceHolderIndex) {
+                                var diagnostic = {
+                                    ErrorCode: 'TRANSLATE-0004',
+                                    Severity: "warning",
+                                    Id: data.Id,
+                                    Message: "Placeholder " + m + " not " + expectedPlaceHolderIndex + " as expected"
+                                };
+                            }
+                        });
+                    }
+                }
+                return [2 /*return*/, diagnostics];
+            });
+        });
+    };
+    LanguageParser.prototype.convert = function (languageCode, jTransUnit) {
+        var sourceId = jTransUnit.$.id;
+        var noteArrOrObj = jTransUnit.note;
+        var navComment = "";
+        var navObject = "";
+        var navElement = "";
+        var navSubelement = "";
+        var state = "";
+        if (noteArrOrObj.$ !== undefined && noteArrOrObj.$["from"] === "Xliff Generator") {
+            navComment = noteArrOrObj._;
+        }
+        else {
+            var sourceNode = noteArrOrObj.find(function (sourceNode) {
+                var from = sourceNode.$["from"];
+                if (from === "Xliff Generator") {
+                    return true;
+                }
+                return false;
+            });
+            navComment = sourceNode._;
+        }
+        var splittedNavComments = this.extractNavComment(navComment);
+        navObject = splittedNavComments.objectName;
+        navElement = splittedNavComments.element;
+        navSubelement = splittedNavComments.subelement;
+        var source = jTransUnit.source;
+        var target = "";
+        if (jTransUnit.target !== undefined) {
+            state = jTransUnit.target.$["state"];
+            target = jTransUnit.target._;
+        }
+        var datasource = {
+            Id: sourceId,
+            SourceCopyText: "",
+            SourceLanguageCode: languageCode,
+            SourceText: source,
+            TargetText: target,
+            NavComment: navComment,
+            NavSubelement: navSubelement,
+            NavElement: navElement,
+            NavObject: navObject,
+            TargetLanguageCode: "",
+            OverallStatus: "",
+            State: state,
+            Handled: false
+        };
+        return datasource;
+    };
+    LanguageParser.prototype.extractNavComment = function (navComment) {
+        var matches = navComment.split(/ - \w+ /, 3);
+        if (matches.length < 1) {
+            return null;
+        }
+        var firstPart = matches[0].trimStart();
+        var objNameEndIndex = firstPart.indexOf(" ");
+        var objName = firstPart.substring(objNameEndIndex).trim();
+        if (matches.length < 2) {
+            return { objectName: objName, element: "", subelement: "" };
+        }
+        var elem = matches[1].trim();
+        if (matches.length < 3) {
+            return { objectName: objName, element: elem, subelement: "" };
+        }
+        var subElem = matches[2].trim();
+        return { objectName: objName, element: elem, subelement: subElem };
     };
     LanguageParser.prototype.isDirtyAsync = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -192,7 +453,7 @@ var LanguageParser = /** @class */ (function () {
                                                 var languageInfo = {
                                                     Path: filePath,
                                                     jContent: jObj,
-                                                    Language: targetLanguage_1,
+                                                    LanguageCode: targetLanguage_1,
                                                     IsMain: isMain_1,
                                                     ModifiedDate: modifiedDate
                                                 };

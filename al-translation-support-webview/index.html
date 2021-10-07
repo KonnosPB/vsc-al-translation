@@ -7,14 +7,18 @@
     <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js" integrity="sha256-0YPKAwZP7Mp3ALMRVB2i8GXeEndvCq3eSl/WsAl1Ryk=" crossorigin="anonymous"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/3.5.3/css/tabulator.min.css" rel="stylesheet">
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/3.5.3/js/tabulator.min.js"></script>
+    <script type="text/javascript" src="./out/TabulatorBuilder.js"></script>
 </head>
 
 <body>
-    <!--
+    
     <script>
         $("#example-table").tabulator();
+
+        let tabBuilder = new TabulatorBuilder();
+        tabBuilder.buildAsync();
     </script>
-    -->
+
     <h1>Tabulator UI Example</h1>    
     <div id="example-table"></div>
 </body>

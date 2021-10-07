@@ -55,29 +55,39 @@ const walk = (
 interface ILanguageFileInfo {
     Path: string;
     jContent: any;
-    Language: string;
+    LanguageCode: string;
     IsMain: boolean;
     ModifiedDate: Date;
 }
 
-interface IDataSource {
+interface IDiagnostic {
+    Severity: string,
+    Id: string,
+    Message: string;
+    ErrorCode: string;
+}
+
+interface IData {
     Id: string;
-    TotalStatus: string;
-    OriginalText: string;
-    OriginalCopyText: string;
-    TranslationState: string;        
-    TranslatedText: string;    
+    SourceLanguageCode: string;
+    TargetLanguageCode: string;
+    OverallStatus: string;
+    SourceText: string;
+    SourceCopyText: string;
+    State: string;
+    TargetText: string;
     NavComment: string;
     NavObject: string;
     NavElement: string;
     NavSubelement: string;
+    Handled: Boolean;
 }
 
 export class LanguageParser {
     private rootDirPath: string;
     private languageFileInfo: ILanguageFileInfo[] = [];
     private xlfFilePaths: string[] = [];
-    private lastIp
+    private data: Array<IData>;
 
     constructor(rootDirPath: string) {
         this.rootDirPath = rootDirPath;
@@ -89,17 +99,243 @@ export class LanguageParser {
     }
 
     public async getLanguagesAsync(): Promise<string[]> {
-        if (await this.isDirtyAsync()){
+        if (await this.isDirtyAsync()) {
             await this.calcDataGridAsync();
-        }        
+        }
         const languages: string[] = [];
         this.languageFileInfo.forEach(element => {
-            languages.push(element.Language);
+            languages.push(element.LanguageCode);
         });
         return languages;
     }
 
-    public async Build
+    public async buildDataAsync(): Promise<any> {
+        const sourceDataArr: Array<IData> = [];
+        const targetDataArr: Array<IData> = [];
+        this.data = [];
+
+        this.languageFileInfo.filter(sourceLanguageInfo => {
+            return sourceLanguageInfo.IsMain;
+        }).forEach(sourceLanguageInfo => {
+            const jSourceContent = sourceLanguageInfo.jContent;
+            const jSourceTransUnitArr: Array<any> = jSourceContent.xliff.file.body.group["trans-unit"];
+            jSourceTransUnitArr.forEach(jSourceTransUnit => {
+                const sourceDataObj = this.convert(sourceLanguageInfo.LanguageCode, jSourceTransUnit);
+                sourceDataArr.push(sourceDataObj);
+            });
+        });
+
+        this.languageFileInfo.filter(targetLanguageInfos => {
+            return !targetLanguageInfos.IsMain;
+        }).forEach(targetLanguageInfo => {
+            const jTargetContent = targetLanguageInfo.jContent;
+            const jTargetTransUnitArr: Array<any> = jTargetContent.xliff.file.body.group["trans-unit"];
+            jTargetTransUnitArr.forEach(jTargettTransUnit => {
+                const targetDataobj = this.convert(targetLanguageInfo.LanguageCode, jTargettTransUnit);
+                targetDataArr.push(targetDataobj);
+            });
+        });
+
+        sourceDataArr.forEach(sourceData => {
+            sourceData.Handled = true;
+            const matchingTargetData = targetDataArr.find(targetData => {
+                return targetData.Handled === false && sourceData.Id === targetData.Id
+            })
+            if (matchingTargetData !== undefined) {
+                matchingTargetData.Handled = true;
+                const merge: IData = {
+                    Id: sourceData.Id,
+                    SourceLanguageCode: sourceData.SourceLanguageCode,
+                    TargetLanguageCode: matchingTargetData.SourceLanguageCode,  //No mistake
+                    OverallStatus: "",
+                    SourceText: sourceData.SourceText,
+                    SourceCopyText: matchingTargetData.SourceText,
+                    State: matchingTargetData.State,
+                    TargetText: matchingTargetData.TargetText,
+                    NavComment: sourceData.NavComment,
+                    NavObject: sourceData.NavObject,
+                    NavElement: sourceData.NavElement,
+                    NavSubelement: sourceData.NavSubelement,
+                    Handled: false
+                };
+                this.data.push(merge);
+            } else {
+                const merge: IData = {
+                    Id: sourceData.Id,
+                    SourceLanguageCode: sourceData.SourceLanguageCode,
+                    TargetLanguageCode: "",
+                    OverallStatus: "",
+                    SourceText: "",
+                    SourceCopyText: "",
+                    State: "",
+                    TargetText: sourceData.TargetText,
+                    NavComment: sourceData.NavComment,
+                    NavObject: sourceData.NavObject,
+                    NavElement: sourceData.NavElement,
+                    NavSubelement: sourceData.NavSubelement,
+                    Handled: false
+                };
+                this.data.push(merge);
+            }
+        });
+
+        targetDataArr.filter(targetData => {
+            return targetData.Handled === false;
+        }).forEach(targetData => {
+            targetData.Handled = true;
+            const merge: IData = {
+                Id: targetData.Id,
+                SourceLanguageCode: targetData.SourceLanguageCode,
+                TargetLanguageCode: targetData.SourceLanguageCode,
+                OverallStatus: "",
+                SourceText: "",
+                SourceCopyText: targetData.SourceText,
+                State: targetData.State,
+                TargetText: targetData.TargetText,
+                NavComment: targetData.NavComment,
+                NavObject: targetData.NavObject,
+                NavElement: targetData.NavElement,
+                NavSubelement: targetData.NavSubelement,
+                Handled: false
+            };
+            this.data.push(merge);
+        });
+        return this.data;
+    }
+
+    public async getDiagnosticsAsync(): Promise<Array<IDiagnostic>> {
+        var diagnostics: Array<IDiagnostic> = [];
+        this.data.forEach(async data => {
+            const partDiagnostics = await this.getDiagnosticAsync(data);
+            diagnostics.concat(partDiagnostics);
+        });
+        return diagnostics;
+    }
+
+    public async getDiagnosticAsync(data: IData): Promise<Array<IDiagnostic>> {
+        var diagnostics: Array<IDiagnostic> = [];
+        if (data.SourceText !== data.SourceCopyText) {
+            data.OverallStatus = "Error";
+            const diagnostic: IDiagnostic = {
+                ErrorCode: 'TRANSLATE-0001',
+                Severity: "error",
+                Id: data.Id,
+                Message: `Source text of ${data.TargetLanguageCode} not up to date`
+            }
+            diagnostics.push(diagnostic);
+        };
+
+        if (data.SourceText !== "" && data.TargetText === "") {
+            data.OverallStatus = "Error";
+            const diagnostic: IDiagnostic = {
+                ErrorCode: 'TRANSLATE-0002',
+                Severity: "error",
+                Id: data.Id,
+                Message: `Translation of ${data.SourceText} in ${data.TargetLanguageCode} language file missing`
+            }
+            diagnostics.push(diagnostic);
+        }
+        else {
+            const sourcePlaceHolderMatchArr = data.SourceText.match(/%\d+/);
+            const targetPlaceHolderMatchArr = data.TargetText.match(/%\d+/);
+            if (sourcePlaceHolderMatchArr !== null && targetPlaceHolderMatchArr !== null) {
+                if (sourcePlaceHolderMatchArr.length != targetPlaceHolderMatchArr.length) {
+                    data.OverallStatus = "Warning";
+                    const diagnostic: IDiagnostic = {
+                        ErrorCode: 'TRANSLATE-0003',
+                        Severity: "error",
+                        Id: data.Id,
+                        Message: `Mismatch of placeholders amount between source (${sourcePlaceHolderMatchArr.length}) and target (${targetPlaceHolderMatchArr.length}). `
+                    }
+                    diagnostics.push(diagnostic);
+                };
+            }
+            if (sourcePlaceHolderMatchArr !== null) {
+                let counter = 0;                
+                sourcePlaceHolderMatchArr.forEach(m => {
+                    counter++;
+                    var expectedPlaceHolderIndex = `%${counter}`;
+                    if (m !== expectedPlaceHolderIndex) {
+                        const diagnostic: IDiagnostic = {
+                            ErrorCode: 'TRANSLATE-0004',
+                            Severity: "warning",
+                            Id: data.Id,
+                            Message: `Placeholder ${m} not ${expectedPlaceHolderIndex} as expected`
+                        }
+                    }
+                });
+            }
+        }
+        return diagnostics;
+    }
+
+    private convert(languageCode: string, jTransUnit: any): IData {
+        const sourceId = jTransUnit.$.id;
+        const noteArrOrObj = jTransUnit.note;
+        let navComment = "";
+        let navObject = "";
+        let navElement = "";
+        let navSubelement = "";
+        let state = "";
+        if (noteArrOrObj.$ !== undefined && noteArrOrObj.$["from"] === "Xliff Generator") {
+            navComment = noteArrOrObj._
+        } else {
+            const sourceNode = noteArrOrObj.find(sourceNode => {
+                const from = sourceNode.$["from"]
+                if (from === "Xliff Generator") {
+                    return true;
+                }
+                return false;
+            });
+            navComment = sourceNode._;
+        }
+
+        const splittedNavComments = this.extractNavComment(navComment);
+        navObject = splittedNavComments.objectName;
+        navElement = splittedNavComments.element;
+        navSubelement = splittedNavComments.subelement;
+        const source = jTransUnit.source;
+        let target = "";
+        if (jTransUnit.target !== undefined) {
+            state = jTransUnit.target.$["state"];
+            target = jTransUnit.target._;
+        }
+        var datasource: IData = {
+            Id: sourceId,
+            SourceCopyText: "",
+            SourceLanguageCode: languageCode,
+            SourceText: source,
+            TargetText: target,
+            NavComment: navComment,
+            NavSubelement: navSubelement,
+            NavElement: navElement,
+            NavObject: navObject,
+            TargetLanguageCode: "",
+            OverallStatus: "",
+            State: state,
+            Handled: false
+        };
+        return datasource;
+    }
+
+    private extractNavComment(navComment: string): { objectName: string, element: string, subelement: string } {
+        const matches = navComment.split(/ - \w+ /, 3);
+        if (matches.length < 1) {
+            return null;
+        }
+        const firstPart = matches[0].trimStart();
+        const objNameEndIndex = firstPart.indexOf(" ");
+        const objName = firstPart.substring(objNameEndIndex).trim();
+        if (matches.length < 2) {
+            return { objectName: objName, element: "", subelement: "" };
+        }
+        const elem = matches[1].trim();
+        if (matches.length < 3) {
+            return { objectName: objName, element: elem, subelement: "" };
+        }
+        const subElem = matches[2].trim();
+        return { objectName: objName, element: elem, subelement: subElem };
+    }
 
     public async isDirtyAsync(): Promise<boolean> {
         var promise = new Promise<boolean>(async (resolve, reject) => {
@@ -132,7 +368,7 @@ export class LanguageParser {
             });
 
             resolve(false);
-        });        
+        });
         return promise;
     }
 
@@ -156,7 +392,7 @@ export class LanguageParser {
                                 var languageInfo: ILanguageFileInfo = {
                                     Path: filePath,
                                     jContent: jObj,
-                                    Language: targetLanguage,
+                                    LanguageCode: targetLanguage,
                                     IsMain: isMain,
                                     ModifiedDate: modifiedDate
                                 };

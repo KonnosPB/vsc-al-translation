@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 
 import { DepNodeProvider, Dependency } from './nodeDependencies';
-import { TranslatableElementsView } from './translatableElementsView';
+import { YattViewer } from './YattViewer';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -17,5 +17,20 @@ export function activate(context: vscode.ExtensionContext) {
 	// vscode.commands.registerCommand('nodeDependencies.deleteEntry', (node: Dependency) => vscode.window.showInformationMessage(`Successfully called delete entry on ${node.label}.`));
 	
 	// Test View
-	new TranslatableElementsView(context);
+	//new TranslatableElementsView(context);
+	vscode.commands.registerCommand('yatt: open translation viewer',()=> {
+		const panel = vscode.window.createWebviewPanel(
+				'yattTranslationViewer',  // Identifies the type of the webview. Used internally
+				'YATT Translation Viewer', // Title of the panel displayed to the user
+				vscode.ViewColumn.One, // Editor column to show the new webview panel in.
+				{} // Webview options
+		);
+
+		// And set its HTML content
+		const yattViewer = new YattViewer(context);
+		yattViewer.getWebviewContent().then(webViewerContent => {
+			panel.webview.html = webViewerContent;
+		});
+		
+	});		
 }

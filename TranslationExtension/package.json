@@ -1,10 +1,10 @@
-{
-	"name": "al-translation-extension",
-	"displayName": "AL Translation Extension",
-	"description": "Translation support for Business Central Development",
+{	
+	"name": "al-yatt",
+	"displayName": "AL YATT for Developers",
+	"description": "Yast Another AL Translation Tool for Developers",
 	"version": "0.0.1",
 	"publisher": "KonnosPB",
-	"enableProposedApi": true,
+	"enableProposedApi": false,
 	"engines": {
 		"vscode": "^1.52.0"
 	},
@@ -20,7 +20,10 @@
 		"AL",
 		"BC",
 		"Dynamics",
-		"Business Central"
+		"Business Central",
+		"Translation",
+		"xlf",
+		"xliff"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -32,7 +35,12 @@
 				}
 			]
 		},
-		"commands": [
+		"commands": [			
+			{
+				"command": "yatt: open translation viewer",
+				"title": "Open YATT Translation Viewer",
+				"category": "yatt"
+			},
 			{
 				"command": "TranslatableElementsView.refreshEntry",
 				"title": "Refresh",
@@ -59,8 +67,7 @@
 			}
 		],
 		"menus": {
-			"commandPalette": [
-				{}
+			"commandPalette": [				
 			],
 			"view/title": [
 				{

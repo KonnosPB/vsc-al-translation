@@ -17,6 +17,9 @@ export class YattViewer {
 		// 		view.title = title;
 		// 	}
 		// });
+
+		// TODO: Demodaten anzeigen.
+		// TODO: Demodaten zur Laufzeit erzeugen.
 	}
 
 	public getWebviewContent(): Thenable<string> {

@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
 		// And set its HTML content
 		const yattViewer = new YattViewer(context);
 		yattViewer.getWebviewContent().then(webViewerContent => {
-			panel.webview.html = webViewerContent;
+			panel.webview.html = webViewerContent;			
 		});
 		
 	});		

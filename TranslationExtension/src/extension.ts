@@ -18,19 +18,26 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	// Test View
 	//new TranslatableElementsView(context);
+	const yattViewer = new YattViewer(context);
+
 	vscode.commands.registerCommand('yatt: open translation viewer',()=> {
 		const panel = vscode.window.createWebviewPanel(
 				'yattTranslationViewer',  // Identifies the type of the webview. Used internally
 				'YATT Translation Viewer', // Title of the panel displayed to the user
 				vscode.ViewColumn.One, // Editor column to show the new webview panel in.
-				{} // Webview options
+				{
+					enableScripts: true
+				} // Webview options
 		);
 
-		// And set its HTML content
-		const yattViewer = new YattViewer(context);
+		// And set its HTML content		
 		yattViewer.getWebviewContent().then(webViewerContent => {
 			panel.webview.html = webViewerContent;			
-		});
-		
+		});				
+	});		
+
+	vscode.commands.registerCommand('yatt: refresh translation viewer',()=> {		
+		// And set its HTML content		
+		yattViewer.updateWebview();
 	});		
 }

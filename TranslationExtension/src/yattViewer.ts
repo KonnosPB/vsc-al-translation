@@ -26,13 +26,28 @@ export class YattViewer {
 		const p = new Promise<string>((resolve, reject) => {	
 			const extension = vscode.extensions.getExtension('KonnosPB.al-yatt');
 			const extensionUri = extension.extensionUri;								
-			const uri = vscode.Uri.joinPath(extensionUri, '/resources/yattViewer.html');
-			vscode.workspace.fs.readFile(uri)
+			const yattViewerUri = vscode.Uri.joinPath(extensionUri, '/resources/yattViewer.html');
+			const jQueryJsUri = vscode.Uri.joinPath(extensionUri, '/assets/jquery/jquery-3.6.0.js');
+			const jQueryUiJsUri = vscode.Uri.joinPath(extensionUri, '/assets/jquery/jquery-ui.js');
+			const tabulatorJsUri = vscode.Uri.joinPath(extensionUri, '/assets/tabulator/js/tabulator.js');
+			const tabulatorCssUri = vscode.Uri.joinPath(extensionUri, '/assets/tabulator/css/tabulator.css');
+			const progressTrackerCssUri = vscode.Uri.joinPath(extensionUri, '/assets/progress-tracker/progress-tracker.css');
+			vscode.workspace.fs.readFile(yattViewerUri)
 				.then(unit8Arr => {
-					const webViewerContent = new TextDecoder().decode(unit8Arr);
+					const webViewerContent = new TextDecoder("utf-8").decode(unit8Arr)				
+					.replace("%JQUERY_JS%", jQueryJsUri.fsPath)
+					.replace("%JQUERY_UI_JS%", jQueryUiJsUri.fsPath)
+					.replace("%TABULATOR_JS%", tabulatorJsUri.fsPath)
+					.replace("%YATT_JS%", "")					
+					.replace("%TABULATOR_CSS%", tabulatorCssUri.fsPath)
+					.replace("%PROGRESS_TRACKER_CSS%", progressTrackerCssUri.fsPath);					
 					resolve(webViewerContent);
 				});
 		});
 		return p;
+	}
+
+	public updateWebview(): void {
+		// TODO implement updateWebview;
 	}
 }

@@ -2,33 +2,52 @@
 <html>
 
 <head>
-	<meta charset="utf-8">
-	<script src="https://code.jquery.com/jquery-3.6.0.js"
-		integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
-	<script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"
-		integrity="sha256-0YPKAwZP7Mp3ALMRVB2i8GXeEndvCq3eSl/WsAl1Ryk=" crossorigin="anonymous"></script>
-	<link href="https://cdnjs.cloudflare.com/ajax/libs/tabulator/3.5.3/css/tabulator.min.css" rel="stylesheet">
-	<script type="text/javascript"
-		src="https://cdnjs.cloudflare.com/ajax/libs/tabulator/3.5.3/js/tabulator.min.js"></script>
-	<script type="text/javascript" src="./out/TabulatorBuilder.js"></script>
+    <meta charset="utf-8">        
+    <script type="text/javascript" src="%JQUERY_JS%"></script>
+    <script type="text/javascript" src="%JQUERY_UI_JS%"></script>    
+    <script type="text/javascript" src="%TABULATOR_JS%"></script>	
+    <script type="text/javascript" src="%YATT_JS%"></script>
+	<link href="%TABULATOR_CSS%" rel="stylesheet">
+	<link href="%PROGRESS_TRACKER_CSS%" rel="stylesheet">
+	
 </head>
 
 <body>
-	<script>
-		var table = new Tabulator("#example-table", {
-			height: "311px",
-			columns: [
-				{ title: "Name", field: "name" },
-				{ title: "Progress", field: "progress", sorter: "number" },
-				{ title: "Gender", field: "gender" },
-				{ title: "Rating", field: "rating" },
-				{ title: "Favourite Color", field: "col" },
-				{ title: "Date Of Birth", field: "dob", hozAlign: "center" },
+    
+    <script>
+        var table = new Tabulator("#example-table", {
+			height:"311px",
+			columns:[
+			{title:"Name", field:"name"},
+			{title:"Progress", field:"progress", sorter:"number"},
+			{title:"Gender", field:"gender"},
+			{title:"Rating", field:"rating"},
+			{title:"Favourite Color", field:"col"},
+			{title:"Date Of Birth", field:"dob", hozAlign:"center"},
 			],
-		});
-	</script>
-	<h1>Tabulator UI Example</h1>
-	<div id="example-table"></div>
+		});      
+    </script>
+
+    <h1>Tabulator UI Example</h1>    
+    <div id="example-table"></div>
+
+	<ul class="progress-tracker">
+		<li class="progress-step is-complete">
+		  <div class="progress-marker"></div>
+		</li>
+		<li class="progress-step is-complete">
+		  <div class="progress-marker"></div>
+		</li>
+		<li class="progress-step is-active">
+		  <div class="progress-marker"></div>
+		</li>
+		<li class="progress-step">
+		  <div class="progress-marker"></div>
+		</li>
+		<li class="progress-step">
+		  <div class="progress-marker"></div>
+		</li>
+	  </ul>
 </body>
 
 </html>

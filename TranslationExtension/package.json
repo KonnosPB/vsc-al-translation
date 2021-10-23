@@ -1,4 +1,4 @@
-{	
+{
 	"name": "al-yatt",
 	"displayName": "AL YATT for Developers",
 	"description": "Yast Another AL Translation Tool for Developers",
@@ -35,7 +35,7 @@
 				}
 			]
 		},
-		"commands": [			
+		"commands": [
 			{
 				"command": "yatt: open translation viewer",
 				"title": "Open YATT Translation Viewer",
@@ -67,8 +67,7 @@
 			}
 		],
 		"menus": {
-			"commandPalette": [				
-			],
+			"commandPalette": [],
 			"view/title": [
 				{
 					"command": "TranslatableElementsView.refreshEntry",
@@ -108,22 +107,22 @@
 	},
 	"devDependencies": {
 		"@types/mkdirp": "^0.5.2",
-		"@types/node": "^12.12.0",
-		"@types/rimraf": "^2.0.2",
-		"@types/vscode": "^1.45.0",
-		"@typescript-eslint/eslint-plugin": "^4.16.0",
-		"@typescript-eslint/parser": "^4.16.0",
+		"@types/node": "^12.20.34",
+		"@types/rimraf": "^2.0.5",
 		"@types/tabulator-tables": "^4.9.4",
-		"eslint": "^7.21.0",
-		"typescript": "^4.2.2",
+		"@types/vscode": "^1.61.0",
+		"@typescript-eslint/eslint-plugin": "^4.33.0",
+		"@typescript-eslint/parser": "^4.33.0",
+		"eslint": "^7.32.0",
 		"fs": "0.0.1-security",
+		"typescript": "^4.4.4",
 		"xml2js": "^0.4.23"
 	},
 	"dependencies": {
-		"jsonc-parser": "^0.4.2",
 		"ftp": "^0.3.10",
+		"jsonc-parser": "^0.4.2",
+		"minimist": "^0.2.1",
 		"mkdirp": "^0.5.1",
-		"rimraf": "^2.6.2",
-		"minimist": "^0.2.1"
+		"rimraf": "^2.7.1"
 	}
 }

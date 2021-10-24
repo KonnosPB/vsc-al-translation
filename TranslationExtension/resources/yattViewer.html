@@ -3,55 +3,91 @@
 
 <head>
 	<meta charset="utf-8">
-	<script type="text/javascript" src="{{jquery_js}}"></script>
-	<script type="text/javascript" src="{{jquery_ui_js}}"></script>
-	<script type="text/javascript" src="{{tabulator_js}}"></script>
-	<script type="text/javascript" src="{{yatt_js}}"></script>
+	<script nonce="{{nonce_1}}" src="{{jquery_js}}"></script>
+	<script nonce="{{nonce_2}}" src="{{jquery_ui_js}}"></script>
+	<script nonce="{{nonce_3}}" src="{{tabulator_js}}"></script>
+	<script nonce="{{nonce_4}}" src="{{yatt_js}}"></script>
 	<link href="{{tabulator_css}}" rel="stylesheet">
 	<link href="{{progress_tracker_css}}" rel="stylesheet">
 
 </head>
 
 <body>
+	<div id="yatt-table"></div>
 
 	<script>
-		var table = new Tabulator("#example-table", {
-			columns: [
-				{ title: "Name", field: "name" },
-				{ title: "Progress", field: "progress", sorter: "number" },
-				{ title: "Gender", field: "gender" },
-				{ title: "Rating", field: "rating" },
-				{ title: "Favourite Color", field: "col" },
-				{ title: "Date Of Birth", field: "dob", hozAlign: "center" },
-			],
+		document.addEventListener('DOMContentLoaded', (event) => {
+			window.CurrentTable = new Tabulator("#yatt-table", {
+				// 			data: await languageParser.buildDataAsync(),           //load row data from array
+				// 			layout: "fitColumns",      //fit columns to width of table
+				// 			responsiveLayout: "hide",  //hide columns that dont fit on the table
+				// 			tooltips: true,            //show tool tips on cells
+				// 			addRowPos: "top",          //when adding a new row, add it to the top of the table
+				history: true,             //allow undo and redo actions on the table
+				pagination: "local",       //paginate the data
+				paginationSize: 50,         //allow 7 rows per page of data
+				movableColumns: true,      //allow column order to be changed
+				// 			resizableRows: true,       //allow row order to be changed
+				initialSort: [             //set the initial sort order of the data
+					{ column: "order", dir: "asc" },
+				],
+				columns: [                 //define the table columns
+					{ title: "Order", field: "Order" },
+					{ title: "Id", field: "Id" },
+					{ title: "Status", field: "OverallStatus" }, //, editorParams: { values: ["male", "female"] } },
+					{ title: "Source (main)", field: "SourceText" },
+					{ title: "Source", field: "SourceCopyText" },
+					{ title: "Target", field: "TargetText" },
+					{ title: "State", field: "State" },
+					{ title: "Object", field: "NavObject" },
+					{ title: "Element", field: "NavElement" },
+					{ title: "Subelement", field: "NavSubelement" },
+					{ title: "Comment", field: "NavComment" },
+				]
+			});
+		});
+
+		window.addEventListener('message', event => {
+			const message = event.data; // The JSON data our extension sent
+			switch (message.command) {
+				case 'updateData':
+					
+					break;
+				case 'updateLanguages':
+					
+					break;
+				case 'progressStart':
+				
+					break;
+				case 'progressEnd':
+					
+					break;
+			}
 		});
 	</script>
 
-	<h1>Tabulator UI Example</h1>
-	<div id="example-table"></div>
-
-	<div class="progress-container">
+	<div class="progress-container" style="visibility: hidden;">
 		<ul class="progress-tracker progress-tracker--text progress-tracker--center">
 			<li class="progress-step is-complete">
 				<div class="progress-marker"></div>
 				<div class="progress-text">
-					<h4 class="progress-title">Step 1</h4>
-					Summary text explaining this step to the user
+					<h4 class="progress-title">XLF Files</h4>
+					Collecting xlf files
 				</div>
 			</li>
 
 			<li class="progress-step is-complete">
 				<div class="progress-marker"></div>
 				<div class="progress-text">
-					<h4 class="progress-title">Step 2</h4>
-					Summary text explaining this step to the user
+					<h4 class="progress-title">Language Datails</h4>
+					Processing data
 				</div>
 			</li>
 
 			<li class="progress-step is-active" aria-current="step">
 				<div class="progress-marker"></div>
 				<div class="progress-text">
-					<h4 class="progress-title">Step 3</h4>
+					<h4 class="progress-title">Diagnosis Info</h4>
 					Summary text explaining this step to the user
 				</div>
 			</li>

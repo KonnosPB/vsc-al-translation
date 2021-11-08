@@ -22,5 +22,6 @@
   "contextSensitiveHelpUrl": "https://DemoProject.com/help/",
   "showMyCode": true,
   "runtime": "7.0",
-  "target": "OnPrem"
+  "target": "OnPrem",
+  "features": ["TranslationFile"]
 }

@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 //import * as ls from 'LanguageService';
-import { LanguageService } from './languageService';
+import { LanguageService } from './LanguageService';
 import { kill } from 'process';
 
 function getWebviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {

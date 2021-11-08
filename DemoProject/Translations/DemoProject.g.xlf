@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 xliff-core-1.2-transitional.xsd">
+  <file datatype="xml" source-language="en-US" target-language="en-US" original="DemoProject">
+    <body>
+      <group id="body">
+        <trans-unit id="Page 2290301928 - NamedType 407788085" size-unit="char" translate="yes" xml:space="preserve">
+          <source>App published: Hello world</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page TestPageExt - NamedType MsgLbl</note>
+        </trans-unit>
+        <trans-unit id="Page 2290301928 - Control 2272340397 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Number</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page TestPageExt - Control Number - Property Caption</note>
+        </trans-unit>
+        <trans-unit id="Page 2290301928 - Action 607802042 - Property 2879900210" size-unit="char" translate="yes" xml:space="preserve">
+          <source>Dummy Action</source>
+          <note from="Developer" annotates="general" priority="2"></note>
+          <note from="Xliff Generator" annotates="general" priority="3">Page TestPageExt - Action DummyAction - Property Caption</note>
+        </trans-unit>
+      </group>
+    </body>
+  </file>
+</xliff>

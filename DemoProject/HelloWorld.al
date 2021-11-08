@@ -102,56 +102,7 @@ page 50100 TestPageExt
         end;
     end;
 
-    local procedure AnalysisDemo5(Test: Record "Sales Line"; var IntVar: Record Integer)
-    var
-        MetaData: Record Integer;
-    begin
-        IntVar.Reset();
-        // Störfaktor Kommentar
-        IntVar.SetFilter(Number, '%1..%2', 1, 5);
-        if IntVar.Findset then begin
-            repeat
 
-            // Noch mehr Störfaktoren
-
-
-            until IntVar.Next() = 0;
-        end;
-    end;
-
-    procedure AnalysisDemo6(Test: Record "Sales Line"; var IntVar: Record Integer)
-    var
-        MetaData: Record Integer;
-    begin
-        Rec.Reset();
-        // Störfaktor Kommentar
-        Rec.SetFilter(Number, '%1..%2', 1, 5);
-        if Rec.Findset then begin
-            repeat
-
-            // Noch mehr Störfaktoren
-
-
-            until Rec.Next() = 0;
-        end;
-    end;
-
-    local procedure AnalysisDemo7(Test: Record "Sales Line"; var IntVar: Record Integer)
-    var
-        MetaData: Record Integer;
-    begin
-        Reset();
-        // Störfaktor Kommentar
-        SetFilter(Number, '%1..%2', 1, 5);
-        if FindSet then begin
-            repeat
-
-            // Noch mehr Störfaktoren
-
-
-            until Next() = 0;
-        end;
-    end;
 
 
 }

@@ -27,6 +27,18 @@
 	],
 	"main": "./out/extension.js",
 	"contributes": {
+		"customEditors": [
+			{
+				"viewType": "KonnosPB.yattViewer",
+				"displayName": "YaTT Viewer",
+				"selector": [
+					{
+						"filenamePattern": "*.xlf"
+					}
+				],
+				"priority": "default"
+			}
+		],
 		"views": {
 			"explorer": [
 				{
@@ -119,6 +131,7 @@
 		"xml2js": "^0.4.23"
 	},
 	"dependencies": {
+		"fast-xml-parser": "^3.21.1",
 		"ftp": "^0.3.10",
 		"jsonc-parser": "^0.4.2",
 		"minimist": "^0.2.1",

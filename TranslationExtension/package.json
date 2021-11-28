@@ -136,6 +136,9 @@
 		"jsonc-parser": "^0.4.2",
 		"minimist": "^0.2.1",
 		"mkdirp": "^0.5.1",
-		"rimraf": "^2.7.1"
+		"rimraf": "^2.7.1",
+		"@vscode/test-electron": "^1.6.1",
+		"glob": "^7.1.4",
+		"mocha": "^6.1.4"
 	}
 }

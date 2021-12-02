@@ -3,6 +3,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Test Extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--disable-extensions",
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+            ],
+            "outFiles": ["${workspaceFolder}/out/test/**/*.js"]
+          },
+        {
             "name": "Run Extension",
             "type": "extensionHost",
             "request": "launch",
@@ -17,18 +29,7 @@
             ],
             "preLaunchTask": "npm: watch"
         },
-        {
-            "name": "Test Extension",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": [
-                "--disable-extensions",
-              "--extensionDevelopmentPath=${workspaceFolder}",
-              "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
-            ],
-            "outFiles": ["${workspaceFolder}/out/test/**/*.js"]
-          },
+       
         {
             "type": "node",
             "request": "attach",

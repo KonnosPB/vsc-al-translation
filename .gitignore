@@ -2,3 +2,5 @@
 /al-translation-support/out/*
 /al-translation-support/dist/*
 /al-translation-support-webview/node_modules/*
+TranslationExtension/src/test/suite/extension.test.ts
+TranslationExtension/.vscode-test/**

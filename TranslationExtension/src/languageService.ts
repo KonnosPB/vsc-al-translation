@@ -51,16 +51,18 @@ export class LanguageService {
 			const sourceId = jTransUnit.$.id;
 			const noteArrOrObj = jTransUnit.note;
 			const source = jTransUnit.source;
-			let navComment = "";
+			let navComment= "";
 			let navObject = "";
 			let navElement = "";
 			let navSubelement = "";
 			if (noteArrOrObj.$ !== undefined && noteArrOrObj.$["from"] === "Xliff Generator") {
 				navComment = noteArrOrObj._;
-				const splittedNavComments = LanguageService.extractNavComment(navComment);
-				navObject = splittedNavComments.objectName;
-				navElement = splittedNavComments.element;
-				navSubelement = splittedNavComments.subelement;
+				const splittedNavComments = LanguageService.extractNavComment(navComment);				
+				if (splittedNavComments){
+					navObject = splittedNavComments.objectName;
+					navElement = splittedNavComments.element;
+					navSubelement = splittedNavComments.subelement;
+				}
 			}
 
 			const datasource: source.IXlfSourceData = {
@@ -86,7 +88,7 @@ export class LanguageService {
 	}
 
 
-	private static extractNavComment(navComment: string): { objectName: string, element: string, subelement: string } {
+	private static extractNavComment(navComment: string): { objectName: string, element: string, subelement: string } | null {
 		const matches = navComment.split(/ - \w+ /, 3);
 		if (matches.length < 1) {
 			return null;
